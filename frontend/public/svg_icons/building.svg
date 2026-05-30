@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="220" viewBox="0 0 260 220">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2ffff"/><stop offset="1" stop-color="#c5e6e7"/></linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#79d8d2"/><stop offset="1" stop-color="#2c9c9a"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9ffff"/><stop offset="1" stop-color="#8fc5cd"/></linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#6d858c" flood-opacity="0.22"/></filter>
+  </defs>
+  <rect width="260" height="220" fill="#fff"/>
+  <ellipse cx="131" cy="184" rx="90" ry="13" fill="#dce7e8"/>
+  <g filter="url(#drop)">
+    <path d="M60 78h128v92H60z" fill="url(#wall)"/>
+    <path d="M77 92h40v78H77zM128 92h42v78h-42z" fill="url(#glass)" stroke="#5da9ad" stroke-width="3"/>
+    <path d="M55 55h139l20 25H34l21-25Z" fill="url(#teal)"/>
+    <path d="M55 55h139l-10-13H67L55 55Z" fill="#b8f2ef"/>
+    <path d="M188 80h26v90h-26z" fill="#d9eeee"/>
+    <path d="M185 80h29L194 55H55L34 80z" fill="#61c6c1" opacity="0.72"/>
+    <path d="M74 170h119" stroke="#86a7ad" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

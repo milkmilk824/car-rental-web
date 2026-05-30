@@ -1,0 +1,18 @@
+# ============================================================
+# DrivePilot Car Rental — Development Profile (MySQL 8)
+# ============================================================
+# Override via environment variables:
+#   MYSQL_URL      — full JDBC URL (default: localhost:3306/drivepilot_car_rental)
+#   MYSQL_USER     — database user (default: root)
+#   MYSQL_PASSWORD — database password (required for local MySQL)
+# ============================================================
+
+spring:
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/drivepilot_car_rental?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update

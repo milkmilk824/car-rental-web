@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: car-rental-backend
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+
+app:
+  payment:
+    callback-secret: ${PAYMENT_CALLBACK_SECRET:change-me-local-secret}
+  data-init:
+    enabled: false

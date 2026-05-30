@@ -1,0 +1,18 @@
+# ============================================================
+# DrivePilot Car Rental — MySQL Profile (alternative)
+# ============================================================
+# Usage: mvn spring-boot:run -Dspring-boot.run.profiles=mysql
+# This profile uses "validate" (no auto-DDL); run schema.sql first.
+# For dev with auto-DDL, use the default "dev" profile instead.
+# ============================================================
+
+spring:
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/drivepilot_car_rental?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false

@@ -1,0 +1,26 @@
+# ============================================================
+# DrivePilot Car Rental — Test Profile (H2 In-Memory)
+# ============================================================
+# No local MySQL required. Used automatically by mvn test.
+# ============================================================
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:car_rental_test_db;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+
+app:
+  payment:
+    callback-secret: drivepilot-test-secret
+  data-init:
+    enabled: true

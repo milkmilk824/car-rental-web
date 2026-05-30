@@ -1,0 +1,4 @@
+# Test default — override main application.yml to use H2 instead of MySQL
+spring:
+  profiles:
+    active: test
