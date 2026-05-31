@@ -1981,6 +1981,11 @@ select {
   border-bottom: 1px solid #edf1f6;
 }
 
+.trip-actions {
+  display: grid;
+  gap: 8px;
+}
+
 .trip-empty {
   justify-items: center;
   min-height: 250px;
@@ -2996,6 +3001,59 @@ select {
   color: #172033;
   font-size: 13px;
   text-align: right;
+}
+
+.store-staff-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e1e8f1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.store-staff-card-head,
+.store-staff-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.store-staff-card-head span {
+  color: #657086;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.store-staff-card .ant-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.store-staff-list {
+  display: grid;
+  gap: 8px;
+}
+
+.store-staff-list div {
+  padding: 10px;
+  border: 1px solid #edf1f6;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.store-staff-list strong {
+  color: #172033;
+  font-size: 13px;
+}
+
+.store-staff-list span {
+  flex: 1;
+  min-width: 0;
+  color: #657086;
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 1260px) {

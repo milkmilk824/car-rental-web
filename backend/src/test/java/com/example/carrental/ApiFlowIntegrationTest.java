@@ -103,6 +103,15 @@ class ApiFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.score").value(5));
 
+        mockMvc.perform(post("/api/comments")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"orderId": %d, "score": 4, "content": "重复评价应被拒绝。"}
+                                """.formatted(orderId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("该订单已评价"));
+
         MvcResult commentsResult = mockMvc.perform(get("/api/comments/car/{carId}", carId))
                 .andExpect(status().isOk())
                 .andReturn();

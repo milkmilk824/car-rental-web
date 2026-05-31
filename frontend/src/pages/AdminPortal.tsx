@@ -41,6 +41,7 @@ import type {
   PaymentOrder,
   RentalOrder,
   Store,
+  StoreStaffBinding,
   StoreStatus,
   User,
   UserRole,
@@ -64,6 +65,7 @@ const emptyPayments: PaymentOrder[] = [];
 const emptyComments: Comment[] = [];
 const emptyContracts: Contract[] = [];
 const emptyMaintenance: MaintenanceRecord[] = [];
+const emptyStoreStaffBindings: StoreStaffBinding[] = [];
 
 const orderStatusLabel: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "待支付",
@@ -730,6 +732,7 @@ export function AdminPortal() {
   const [keyword, setKeyword] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [staffUserId, setStaffUserId] = useState<number>();
 
   const dashboardQuery = useQuery({ queryKey: ["admin-dashboard"], queryFn: api.dashboard });
   const revenueTrendQuery = useQuery({ queryKey: ["admin-revenue-trend"], queryFn: () => api.revenueTrend(8) });
@@ -779,6 +782,54 @@ export function AdminPortal() {
     });
   }, [currentRecords, keyword]);
   const selectedRecord = currentRecords.find((record) => record.id === selectedId) || visibleRecords[0] || currentRecords[0];
+  const selectedStoreForStaff =
+    selectedRecord?.section === "stores" ? (selectedRecord.raw as Store) : undefined;
+
+  const storeStaffQuery = useQuery({
+    queryKey: ["admin-store-staff", selectedStoreForStaff?.id],
+    queryFn: () => api.storeStaff(selectedStoreForStaff!.id),
+    enabled: Boolean(selectedStoreForStaff?.id),
+  });
+  const storeStaffBindings = storeStaffQuery.data ?? emptyStoreStaffBindings;
+  const staffOptions = useMemo(
+    () =>
+      users
+        .filter((item) => item.role === "STORE_STAFF" && !storeStaffBindings.some((binding) => binding.user.id === item.id))
+        .map((item) => ({
+          label: `${item.realName || item.username} · ${item.phone || item.username}`,
+          value: item.id,
+        })),
+    [storeStaffBindings, users],
+  );
+
+  const bindStoreStaffMutation = useMutation({
+    mutationFn: (userId: number) => {
+      if (!selectedStoreForStaff) throw new Error("请先选择门店");
+      return api.bindStoreStaff(selectedStoreForStaff.id, userId);
+    },
+    onSuccess: (_, userId) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-store-staff", selectedStoreForStaff?.id] });
+      queryClient.invalidateQueries({ queryKey: ["my-stores"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setStaffUserId(undefined);
+      const staff = users.find((item) => item.id === userId);
+      message.success(`${staff?.realName || staff?.username || "员工"} 已绑定到门店`);
+    },
+    onError: (error) => message.error(error.message),
+  });
+
+  const unbindStoreStaffMutation = useMutation({
+    mutationFn: (userId: number) => {
+      if (!selectedStoreForStaff) throw new Error("请先选择门店");
+      return api.unbindStoreStaff(selectedStoreForStaff.id, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-store-staff", selectedStoreForStaff?.id] });
+      queryClient.invalidateQueries({ queryKey: ["my-stores"] });
+      message.success("门店员工已解绑");
+    },
+    onError: (error) => message.error(error.message),
+  });
 
   const selectSection = (section: AdminSection) => {
     const nextSection = tableSection(section);
@@ -1251,6 +1302,53 @@ export function AdminPortal() {
                   </div>
                 ))}
               </div>
+              {currentSection === "stores" && selectedStoreForStaff && (
+                <div className="store-staff-card detail-motion">
+                  <div className="store-staff-card-head">
+                    <span>门店员工</span>
+                    <Tag color="blue">{storeStaffBindings.length} 人已绑定</Tag>
+                  </div>
+                  <Space.Compact block>
+                    <Select
+                      allowClear
+                      value={staffUserId}
+                      loading={usersQuery.isFetching || storeStaffQuery.isFetching}
+                      onChange={setStaffUserId}
+                      placeholder={staffOptions.length ? "选择门店员工账号" : "暂无可绑定门店员工"}
+                      options={staffOptions}
+                    />
+                    <Button
+                      type="primary"
+                      loading={bindStoreStaffMutation.isPending}
+                      disabled={!staffUserId}
+                      onClick={() => staffUserId && bindStoreStaffMutation.mutate(staffUserId)}
+                    >
+                      绑定
+                    </Button>
+                  </Space.Compact>
+                  <div className="store-staff-list">
+                    {storeStaffBindings.length ? (
+                      storeStaffBindings.map((binding) => (
+                        <div key={binding.id}>
+                          <strong>{binding.user.realName || binding.user.username}</strong>
+                          <span>{binding.user.phone || binding.user.email || binding.user.username}</span>
+                          <Button
+                            type="link"
+                            danger
+                            size="small"
+                            loading={unbindStoreStaffMutation.isPending}
+                            onClick={() => unbindStoreStaffMutation.mutate(binding.user.id)}
+                          >
+                            解绑
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该门店暂未绑定员工" />
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="admin-fee-card detail-motion">
                 <span>运营备注</span>
                 <p>{selectedRecord.extra}</p>
@@ -1282,7 +1380,7 @@ export function AdminPortal() {
         okText="保存"
         cancelText="取消"
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         {currentSection === "cars" && selectedRecord && (
           <EditCarForm
@@ -1328,7 +1426,7 @@ export function AdminPortal() {
         okText="创建"
         cancelText="取消"
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <CreateFormSelector
           section={currentSection}

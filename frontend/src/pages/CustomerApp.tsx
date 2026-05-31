@@ -77,6 +77,7 @@ export function CustomerApp() {
   const [pickupStoreId, setPickupStoreId] = useState<number>();
   const [returnStoreId, setReturnStoreId] = useState<number>();
   const [contract, setContract] = useState<Contract | null>(null);
+  const [contractLoading, setContractLoading] = useState(false);
   const [commentOrder, setCommentOrder] = useState<RentalOrder | null>(null);
 
   const storesQuery = useQuery({ queryKey: ["stores"], queryFn: api.stores });
@@ -91,6 +92,24 @@ export function CustomerApp() {
   const orders = useMemo(() => ordersQuery.data || [], [ordersQuery.data]);
   const latestOrder = orders[0];
   const activeOrder = latestOrder;
+  const commentsQuery = useQuery({
+    queryKey: ["car-comments", activeOrder?.car.id],
+    queryFn: () => api.carComments(activeOrder!.car.id),
+    enabled: Boolean(activeOrder?.id && activeOrder.status === "COMPLETED"),
+  });
+  const hasReviewedActiveOrder = useMemo(
+    () =>
+      Boolean(
+        activeOrder &&
+          commentsQuery.data?.some(
+            (comment) =>
+              comment.orderId === activeOrder.id &&
+              comment.userId === user?.id &&
+              comment.status !== "REMOVED",
+          ),
+      ),
+    [activeOrder, commentsQuery.data, user?.id],
+  );
   const totalAmount = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
 
   const cityOptions = useMemo(() => Array.from(new Set(stores.map((store) => store.city))), [stores]);
@@ -136,12 +155,18 @@ export function CustomerApp() {
       if (!bookingCar || !range || !pickupStoreId || !returnStoreId) {
         throw new Error("请选择车辆、时间和门店");
       }
+      const startTime = range[0].second(0).millisecond(0).format("YYYY-MM-DDTHH:mm:ss");
+      const endTime = range[1].second(0).millisecond(0).format("YYYY-MM-DDTHH:mm:ss");
+      const availability = await api.carAvailability(bookingCar.id, startTime, endTime);
+      if (!availability.available) {
+        throw new Error(availability.reason || "该车辆在所选时段不可租");
+      }
       const order = await api.createOrder({
         carId: bookingCar.id,
         pickupStoreId,
         returnStoreId,
-        startTime: range[0].second(0).millisecond(0).format("YYYY-MM-DDTHH:mm:ss"),
-        endTime: range[1].second(0).millisecond(0).format("YYYY-MM-DDTHH:mm:ss"),
+        startTime,
+        endTime,
       });
       const payment = await api.createPayment(order.id, "MOCK");
       await api.simulatePayment(payment.paymentNo);
@@ -159,10 +184,36 @@ export function CustomerApp() {
     onError: (error) => message.error(error instanceof Error ? error.message : "下单失败"),
   });
 
+  const handleTripPrimaryAction = async (order: RentalOrder) => {
+    if (order.status === "COMPLETED") {
+      setContractLoading(true);
+      try {
+        setContract(await api.contractByOrder(order.id));
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "合同查询失败");
+      } finally {
+        setContractLoading(false);
+      }
+      return;
+    }
+    if (order.status === "PENDING_PICKUP") {
+      message.info("订单已支付，请按预约时间到门店取车");
+      return;
+    }
+    if (order.status === "RENTING" || order.status === "PENDING_RETURN") {
+      message.info("请到还车门店办理还车复检");
+      return;
+    }
+    message.info("当前订单暂无可执行操作");
+  };
+
   const commentMutation = useMutation({
     mutationFn: (values: { score: number; content: string }) =>
       api.createComment(commentOrder!.id, values.score, values.content),
     onSuccess: () => {
+      if (commentOrder) {
+        queryClient.invalidateQueries({ queryKey: ["car-comments", commentOrder.car.id] });
+      }
       setCommentOrder(null);
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       message.success("评价已归档");
@@ -409,9 +460,24 @@ export function CustomerApp() {
                   content: title,
                 }))}
               />
-              <Button type="primary" block>
-                {activeOrder.status === "COMPLETED" ? "查看合同" : "去还车"}
-              </Button>
+              <div className="trip-actions">
+                <Button
+                  type="primary"
+                  block
+                  loading={contractLoading}
+                  onClick={() => handleTripPrimaryAction(activeOrder)}
+                >
+                  {activeOrder.status === "COMPLETED" ? "查看合同" : "查看进度"}
+                </Button>
+                {activeOrder.status === "COMPLETED" &&
+                  (hasReviewedActiveOrder ? (
+                    <Tag color="green">已评价</Tag>
+                  ) : (
+                    <Button block onClick={() => setCommentOrder(activeOrder)}>
+                      评价本次服务
+                    </Button>
+                  ))}
+              </div>
             </div>
           ) : (
             <div className="trip-empty">

@@ -11,4 +11,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByCarIdAndStatusOrderByCreateTimeDesc(Long carId, CommentStatus status);
 
     List<Comment> findByStatusOrderByCreateTimeDesc(CommentStatus status);
+
+    boolean existsByRentalOrderIdAndUserIdAndStatusNot(Long orderId, Long userId, CommentStatus status);
 }

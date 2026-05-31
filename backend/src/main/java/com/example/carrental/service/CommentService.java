@@ -32,6 +32,9 @@ public class CommentService {
         if (order.getStatus() != OrderStatus.COMPLETED) {
             throw BusinessException.badRequest("订单完成后才能评价");
         }
+        if (commentRepository.existsByRentalOrderIdAndUserIdAndStatusNot(order.getId(), userId, CommentStatus.REMOVED)) {
+            throw BusinessException.badRequest("该订单已评价");
+        }
         Comment comment = new Comment();
         comment.setUser(order.getUser());
         comment.setCar(order.getCar());

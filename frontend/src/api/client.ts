@@ -137,6 +137,7 @@ export const api = {
   cancelOrder: (id: number) =>
     request<RentalOrder>(`/api/orders/${id}/cancel`, { method: "PUT" }),
   contractByOrder: (orderId: number) => request<Contract>(`/api/contracts/order/${orderId}`),
+  carComments: (carId: number) => request<Comment[]>(`/api/comments/car/${carId}`, { auth: false }),
   createComment: (orderId: number, score: number, content: string) =>
     request<Comment>("/api/comments", {
       method: "POST",

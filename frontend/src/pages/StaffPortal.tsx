@@ -253,7 +253,10 @@ export function StaffPortal() {
         stagger: 0.06,
         ease: "power2.out",
       });
-      gsap.from(".staff-order-card", { y: 18, autoAlpha: 0, duration: 0.45, stagger: 0.04, delay: 0.25 });
+      const orderCards = gsap.utils.toArray<HTMLElement>(".staff-order-card");
+      if (orderCards.length) {
+        gsap.from(orderCards, { y: 18, autoAlpha: 0, duration: 0.45, stagger: 0.04, delay: 0.25 });
+      }
     }, pageRef);
     return () => context.revert();
   }, []);
@@ -261,8 +264,10 @@ export function StaffPortal() {
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced || !selectedOrder) return;
+    const targets = gsap.utils.toArray<HTMLElement>(".staff-detail .detail-motion");
+    if (!targets.length) return;
     gsap.fromTo(
-      ".staff-detail .detail-motion",
+      targets,
       { x: 18, autoAlpha: 0 },
       { x: 0, autoAlpha: 1, duration: 0.32, stagger: 0.04, ease: "power2.out" },
     );
@@ -572,7 +577,7 @@ export function StaffPortal() {
                   items={[
                     {
                       color: "#2563eb",
-                      children: (
+                      content: (
                         <span>
                           取车 {selectedOrder.pickupTime}
                           <br />
@@ -582,7 +587,7 @@ export function StaffPortal() {
                     },
                     {
                       color: selectedOrder.status === "COMPLETED" ? "#22c55e" : "#cbd5e1",
-                      children: (
+                      content: (
                         <span>
                           还车 {selectedOrder.returnTime}
                           <br />
