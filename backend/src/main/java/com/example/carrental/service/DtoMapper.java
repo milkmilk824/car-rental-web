@@ -36,6 +36,14 @@ public final class DtoMapper {
         );
     }
 
+    public static StoreDtos.StoreStaffResponse toStoreStaffResponse(StoreStaff storeStaff) {
+        return new StoreDtos.StoreStaffResponse(
+                storeStaff.getId(),
+                toStoreResponse(storeStaff.getStore()),
+                toUserResponse(storeStaff.getUser())
+        );
+    }
+
     public static CarDtos.CategoryResponse toCategoryResponse(CarCategory category) {
         if (category == null) {
             return null;

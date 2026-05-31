@@ -29,4 +29,7 @@ public final class StoreDtos {
             StoreStatus status
     ) {
     }
+
+    public record StoreStaffResponse(Long id, StoreResponse store, UserDtos.UserResponse user) {
+    }
 }

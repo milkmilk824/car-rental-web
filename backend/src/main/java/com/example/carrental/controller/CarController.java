@@ -11,9 +11,11 @@ import com.example.carrental.security.RequireRole;
 import com.example.carrental.service.CarService;
 import com.example.carrental.service.MaintenanceService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -54,6 +56,16 @@ public class CarController {
     @GetMapping("/api/cars/{id}")
     public ApiResponse<CarDtos.CarResponse> detail(@PathVariable Long id) {
         return ApiResponse.ok(carService.detail(id));
+    }
+
+    @PublicEndpoint
+    @GetMapping("/api/cars/{id}/availability")
+    public ApiResponse<CarDtos.AvailabilityResponse> availability(
+            @PathVariable Long id,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime
+    ) {
+        return ApiResponse.ok(carService.availability(id, startTime, endTime));
     }
 
     @RequireRole(UserRole.ADMIN)

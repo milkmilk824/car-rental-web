@@ -66,6 +66,12 @@ export interface Store {
   status: StoreStatus;
 }
 
+export interface StoreStaffBinding {
+  id: number;
+  store: Store;
+  user: User;
+}
+
 export interface Car {
   id: number;
   carName: string;
@@ -148,6 +154,24 @@ export interface DashboardStats {
   rentingOrders: number;
   hotCars: Array<{ carId: number; carName: string; orderCount: number }>;
   storePerformance: Array<{ storeId: number; storeName: string; orderCount: number }>;
+}
+
+export interface RevenueTrendPoint {
+  date: string;
+  revenue: number;
+}
+
+export interface CarAvailability {
+  carId: number;
+  available: boolean;
+  reason: string;
+}
+
+export interface UploadResponse {
+  url: string;
+  filename: string;
+  size: number;
+  contentType: string;
 }
 
 export interface CarSearchParams {

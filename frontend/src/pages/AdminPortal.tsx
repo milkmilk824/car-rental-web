@@ -732,6 +732,7 @@ export function AdminPortal() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const dashboardQuery = useQuery({ queryKey: ["admin-dashboard"], queryFn: api.dashboard });
+  const revenueTrendQuery = useQuery({ queryKey: ["admin-revenue-trend"], queryFn: () => api.revenueTrend(8) });
   const carsQuery = useQuery({ queryKey: ["admin-cars"], queryFn: () => api.adminCars({ size: 100 }) });
   const storesQuery = useQuery({ queryKey: ["admin-stores"], queryFn: api.adminStores });
   const ordersQuery = useQuery({ queryKey: ["admin-orders"], queryFn: api.adminOrders });
@@ -813,7 +814,13 @@ export function AdminPortal() {
     ];
   }, [cars, dashboardQuery.data, orders, payments, users]);
 
-  const trendData = useMemo(() => paymentTrend(payments), [payments]);
+  const trendData = useMemo(() => {
+    const liveTrend = revenueTrendQuery.data || [];
+    if (liveTrend.length) {
+      return liveTrend.map((item) => ({ date: item.date.slice(5), value: Number(item.revenue || 0) }));
+    }
+    return paymentTrend(payments);
+  }, [payments, revenueTrendQuery.data]);
   const hotStats = useMemo(() => {
     const hotCars = dashboardQuery.data?.hotCars || [];
     if (!hotCars.length) return hotVehicleStats;
@@ -823,6 +830,7 @@ export function AdminPortal() {
   const invalidateAdminData = () => {
     [
       ["admin-dashboard"],
+      ["admin-revenue-trend"],
       ["admin-cars"],
       ["admin-stores"],
       ["admin-orders"],

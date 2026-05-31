@@ -54,4 +54,7 @@ public final class CarDtos {
             List<String> imageUrls
     ) {
     }
+
+    public record AvailabilityResponse(Long carId, boolean available, String reason) {
+    }
 }

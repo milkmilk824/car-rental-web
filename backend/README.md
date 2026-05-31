@@ -103,7 +103,27 @@ WHERE username = '你的用户名';
 
 ### 方式二：启用临时 Bootstrap 接口（需代码开启）
 
-如需通过 API 创建首个管理员，可在 `AdminController` 中临时添加一个受配置开关保护的 bootstrap 端点，仅在 `app.data-init.enabled=true` 时可用。
+如需通过 API 创建首个管理员，可临时开启受密钥保护的 bootstrap 端点。该端点默认关闭，且只允许在库中不存在 `ADMIN` 用户时创建第一个管理员：
+
+```powershell
+$env:APP_BOOTSTRAP_ENABLED="true"
+$env:APP_BOOTSTRAP_SECRET="change-this-secret"
+```
+
+```http
+POST /api/bootstrap/admin
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "your-password",
+  "phone": "18800000000",
+  "email": "admin@example.com",
+  "secret": "change-this-secret"
+}
+```
+
+创建完成后应关闭 `APP_BOOTSTRAP_ENABLED` 并重启服务。
 
 ## 全部接口清单
 
@@ -113,6 +133,7 @@ WHERE username = '你的用户名';
 - `GET /api/cars`, `GET /api/cars/search` — 车辆搜索
 - `GET /api/cars/categories` — 分类列表
 - `GET /api/cars/{id}` — 车辆详情
+- `GET /api/cars/{id}/availability?startTime=&endTime=` — 按租期确认车辆是否可租
 - `GET /api/stores` — 门店列表（支持 city, onlyOpen 筛选）
 - `GET /api/stores/{id}` — 门店详情
 - `GET /api/comments/car/{carId}` — 车辆评价
@@ -135,6 +156,7 @@ WHERE username = '你的用户名';
 - `POST /api/comments` — 发表评价
 
 ### 门店员工接口（STORE_STAFF / ADMIN）
+- `GET /api/store/my-stores` — 当前员工绑定门店
 - `GET /api/store/orders?storeId=` — 门店订单
 - `PUT /api/store/orders/{id}/pickup` — 确认取车
 - `PUT /api/store/orders/{id}/return` — 确认还车
@@ -147,8 +169,10 @@ WHERE username = '你的用户名';
 ### 管理员接口（ADMIN）
 **数据看板：**
 - `GET /api/admin/dashboard`
+- `GET /api/admin/dashboard/revenue-trend?days=7`
 
 **车辆与分类：**
+- `POST /api/admin/upload/car-image` — 上传车辆图片，返回 `/uploads/car-images/...`
 - `POST /api/admin/cars` — 创建车辆
 - `PUT /api/admin/cars/{id}` — 更新车辆
 - `DELETE /api/admin/cars/{id}` — 删除车辆
@@ -169,6 +193,9 @@ WHERE username = '你的用户名';
 - `POST /api/admin/stores` — 创建门店
 - `PUT /api/admin/stores/{id}` — 更新门店
 - `DELETE /api/admin/stores/{id}` — 删除门店
+- `POST /api/admin/stores/{storeId}/staff/{userId}` — 绑定门店员工
+- `GET /api/admin/stores/{storeId}/staff` — 查看门店员工
+- `DELETE /api/admin/stores/{storeId}/staff/{userId}` — 解绑门店员工
 
 **订单管理：**
 - `GET /api/admin/orders` — 全部订单
@@ -195,9 +222,9 @@ WHERE username = '你的用户名';
 
 | 入口 | API 数量 | 状态 |
 |------|---------|------|
-| CustomerApp | 10 个 | ✅ 全部对接真实接口 |
-| StaffPortal | 9 个 | ✅ 全部对接真实接口 |
-| AdminPortal | 24 个 | ✅ 全部对接真实接口（编辑/创建弹窗均为真实表单提交） |
+| CustomerApp | 11 个 | ✅ 全部对接真实接口 |
+| StaffPortal | 10 个 | ✅ 全部对接真实接口 |
+| AdminPortal | 31 个 | ✅ 全部对接真实接口（编辑/创建弹窗均为真实表单提交） |
 
 > 前端 AdminPortal 的「导出」按钮为占位（提示通过数据库导出），「联系用户」为占位。这些不影响数据持久化。
 

@@ -3,8 +3,10 @@ package com.example.carrental.controller;
 import com.example.carrental.common.ApiResponse;
 import com.example.carrental.common.Enums.UserRole;
 import com.example.carrental.dto.StoreDtos;
+import com.example.carrental.security.AuthContext;
 import com.example.carrental.security.PublicEndpoint;
 import com.example.carrental.security.RequireRole;
+import com.example.carrental.service.StoreStaffService;
 import com.example.carrental.service.StoreService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import java.util.List;
 public class StoreController {
 
     private final StoreService storeService;
+    private final StoreStaffService storeStaffService;
 
-    public StoreController(StoreService storeService) {
+    public StoreController(StoreService storeService, StoreStaffService storeStaffService) {
         this.storeService = storeService;
+        this.storeStaffService = storeStaffService;
     }
 
     @PublicEndpoint
@@ -52,5 +56,30 @@ public class StoreController {
     public ApiResponse<Void> delete(@PathVariable Long id) {
         storeService.delete(id);
         return ApiResponse.ok();
+    }
+
+    @RequireRole(UserRole.ADMIN)
+    @PostMapping("/api/admin/stores/{storeId}/staff/{userId}")
+    public ApiResponse<StoreDtos.StoreStaffResponse> bindStaff(@PathVariable Long storeId, @PathVariable Long userId) {
+        return ApiResponse.ok(storeStaffService.bind(storeId, userId));
+    }
+
+    @RequireRole(UserRole.ADMIN)
+    @GetMapping("/api/admin/stores/{storeId}/staff")
+    public ApiResponse<List<StoreDtos.StoreStaffResponse>> staffByStore(@PathVariable Long storeId) {
+        return ApiResponse.ok(storeStaffService.staffByStore(storeId));
+    }
+
+    @RequireRole(UserRole.ADMIN)
+    @DeleteMapping("/api/admin/stores/{storeId}/staff/{userId}")
+    public ApiResponse<Void> unbindStaff(@PathVariable Long storeId, @PathVariable Long userId) {
+        storeStaffService.unbind(storeId, userId);
+        return ApiResponse.ok();
+    }
+
+    @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})
+    @GetMapping("/api/store/my-stores")
+    public ApiResponse<List<StoreDtos.StoreResponse>> myStores() {
+        return ApiResponse.ok(storeStaffService.myStores(AuthContext.required().id()));
     }
 }

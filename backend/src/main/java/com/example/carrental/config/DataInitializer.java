@@ -19,6 +19,7 @@ import com.example.carrental.domain.MaintenanceRecord;
 import com.example.carrental.domain.PaymentOrder;
 import com.example.carrental.domain.RentalOrder;
 import com.example.carrental.domain.Store;
+import com.example.carrental.domain.StoreStaff;
 import com.example.carrental.domain.User;
 import com.example.carrental.repository.CarCategoryRepository;
 import com.example.carrental.repository.CarRepository;
@@ -28,6 +29,7 @@ import com.example.carrental.repository.MaintenanceRecordRepository;
 import com.example.carrental.repository.PaymentOrderRepository;
 import com.example.carrental.repository.RentalOrderRepository;
 import com.example.carrental.repository.StoreRepository;
+import com.example.carrental.repository.StoreStaffRepository;
 import com.example.carrental.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -57,6 +59,7 @@ public class DataInitializer {
             ContractRepository contractRepository,
             CommentRepository commentRepository,
             MaintenanceRecordRepository maintenanceRecordRepository,
+            StoreStaffRepository storeStaffRepository,
             PasswordEncoder passwordEncoder
     ) {
         return args -> {
@@ -78,6 +81,11 @@ public class DataInitializer {
             Store pudong = store("上海浦东机场店", "上海", "浦东新区迎宾大道 1200 号", "021-80010002");
             Store chaoyang = store("北京朝阳商务店", "北京", "朝阳区建国路 66 号", "010-80010003");
             storeRepository.saveAll(List.of(hongqiao, pudong, chaoyang));
+            storeStaffRepository.saveAll(List.of(
+                    storeStaff(staff, hongqiao),
+                    storeStaff(staff, pudong),
+                    storeStaff(staff, chaoyang)
+            ));
 
             CarCategory economy = category("经济型", "城市通勤、短租高性价比车型");
             CarCategory business = category("商务型", "商务接待与长途舒适出行");
@@ -179,6 +187,13 @@ public class DataInitializer {
         store.setBusinessHours("08:00-22:00");
         store.setStatus(StoreStatus.OPEN);
         return store;
+    }
+
+    private StoreStaff storeStaff(User user, Store store) {
+        StoreStaff storeStaff = new StoreStaff();
+        storeStaff.setUser(user);
+        storeStaff.setStore(store);
+        return storeStaff;
     }
 
     private CarCategory category(String name, String description) {

@@ -1,5 +1,6 @@
 package com.example.carrental.repository;
 
+import com.example.carrental.common.Enums.UserRole;
 import com.example.carrental.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -12,4 +13,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     boolean existsByPhone(String phone);
+
+    boolean existsByRole(UserRole role);
 }

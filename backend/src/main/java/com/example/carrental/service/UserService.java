@@ -1,8 +1,10 @@
 package com.example.carrental.service;
 
 import com.example.carrental.common.BusinessException;
+import com.example.carrental.common.Enums.UserRole;
 import com.example.carrental.common.Enums.UserStatus;
 import com.example.carrental.domain.User;
+import com.example.carrental.dto.BootstrapDtos;
 import com.example.carrental.dto.UserDtos;
 import com.example.carrental.repository.UserRepository;
 import com.example.carrental.security.TokenService;
@@ -104,6 +106,30 @@ public class UserService {
         user.setStatus(request.status() != null ? request.status() : com.example.carrental.common.Enums.UserStatus.ACTIVE);
         userRepository.save(user);
         return DtoMapper.toUserResponse(user);
+    }
+
+    public UserDtos.LoginResponse bootstrapAdmin(BootstrapDtos.BootstrapAdminRequest request, String expectedSecret) {
+        if (expectedSecret == null || expectedSecret.isBlank() || !expectedSecret.equals(request.secret())) {
+            throw BusinessException.forbidden("Bootstrap 密钥错误");
+        }
+        if (userRepository.existsByRole(UserRole.ADMIN)) {
+            throw BusinessException.badRequest("管理员账号已存在");
+        }
+        if (userRepository.existsByUsername(request.username())) {
+            throw BusinessException.badRequest("用户名已存在");
+        }
+        if (request.phone() != null && !request.phone().isBlank() && userRepository.existsByPhone(request.phone())) {
+            throw BusinessException.badRequest("手机号已被注册");
+        }
+        User user = new User();
+        user.setUsername(request.username());
+        user.setPassword(passwordEncoder.encode(request.password()));
+        user.setPhone(request.phone());
+        user.setEmail(request.email());
+        user.setRole(UserRole.ADMIN);
+        user.setStatus(UserStatus.ACTIVE);
+        userRepository.save(user);
+        return new UserDtos.LoginResponse(tokenService.issue(user), DtoMapper.toUserResponse(user));
     }
 
     public UserDtos.UserResponse updateUser(Long userId, UserDtos.AdminUpdateUserRequest request) {

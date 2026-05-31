@@ -54,18 +54,18 @@ public class OrderController {
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})
     @GetMapping("/api/store/orders")
     public ApiResponse<List<OrderDtos.OrderResponse>> storeOrders(@RequestParam Long storeId) {
-        return ApiResponse.ok(orderService.storeOrders(storeId));
+        return ApiResponse.ok(orderService.storeOrders(storeId, AuthContext.required()));
     }
 
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})
     @PutMapping({"/api/admin/orders/{id}/pickup", "/api/store/orders/{id}/pickup"})
     public ApiResponse<OrderDtos.OrderResponse> confirmPickup(@PathVariable Long id) {
-        return ApiResponse.ok(orderService.confirmPickup(id));
+        return ApiResponse.ok(orderService.confirmPickup(id, AuthContext.required()));
     }
 
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})
     @PutMapping({"/api/admin/orders/{id}/return", "/api/store/orders/{id}/return"})
     public ApiResponse<OrderDtos.OrderResponse> confirmReturn(@PathVariable Long id) {
-        return ApiResponse.ok(orderService.confirmReturn(id));
+        return ApiResponse.ok(orderService.confirmReturn(id, AuthContext.required()));
     }
 }

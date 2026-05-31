@@ -156,7 +156,7 @@ export function StaffPortal() {
   const [maintenanceOrder, setMaintenanceOrder] = useState<StaffOrderView | null>(null);
   const [keyword, setKeyword] = useState("");
 
-  const storesQuery = useQuery({ queryKey: ["stores"], queryFn: () => api.stores() });
+  const storesQuery = useQuery({ queryKey: ["my-stores"], queryFn: api.myStores });
   const stores = storesQuery.data ?? emptyStores;
   const effectiveStoreId = selectedStoreId ?? stores[0]?.id;
   const selectedStore = stores.find((item) => item.id === effectiveStoreId) || stores[0];

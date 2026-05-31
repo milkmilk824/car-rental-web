@@ -31,6 +31,11 @@ public class AdminController {
         return ApiResponse.ok(statisticsService.dashboard());
     }
 
+    @GetMapping("/dashboard/revenue-trend")
+    public ApiResponse<List<StatisticsDtos.RevenueTrendResponse>> revenueTrend(@RequestParam(defaultValue = "7") int days) {
+        return ApiResponse.ok(statisticsService.revenueTrend(days));
+    }
+
     @GetMapping("/users")
     public ApiResponse<List<UserDtos.UserResponse>> users() {
         return ApiResponse.ok(userService.listUsers());

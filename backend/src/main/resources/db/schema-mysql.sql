@@ -37,6 +37,19 @@ CREATE TABLE IF NOT EXISTS store (
   update_time DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS store_staff (
+  store_staff_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  store_id BIGINT NOT NULL,
+  create_time DATETIME NOT NULL,
+  update_time DATETIME NOT NULL,
+  UNIQUE KEY uk_store_staff_user_store (user_id, store_id),
+  KEY idx_store_staff_user (user_id),
+  KEY idx_store_staff_store (store_id),
+  CONSTRAINT fk_store_staff_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_store_staff_store FOREIGN KEY (store_id) REFERENCES store(store_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS car (
   car_id BIGINT PRIMARY KEY AUTO_INCREMENT,
   car_name VARCHAR(100) NOT NULL,

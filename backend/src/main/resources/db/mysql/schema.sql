@@ -63,6 +63,23 @@ CREATE TABLE IF NOT EXISTS store (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------------------
+-- store_staff — 门店员工绑定
+-- -------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS store_staff (
+  store_staff_id BIGINT   NOT NULL AUTO_INCREMENT,
+  user_id        BIGINT   NOT NULL,
+  store_id       BIGINT   NOT NULL,
+  create_time    DATETIME NOT NULL,
+  update_time    DATETIME NOT NULL,
+  PRIMARY KEY (store_staff_id),
+  UNIQUE INDEX uk_store_staff_user_store (user_id, store_id),
+  INDEX idx_store_staff_user (user_id),
+  INDEX idx_store_staff_store (store_id),
+  CONSTRAINT fk_store_staff_user  FOREIGN KEY (user_id)  REFERENCES users(user_id),
+  CONSTRAINT fk_store_staff_store FOREIGN KEY (store_id) REFERENCES store(store_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------------------
 -- car — 车辆
 -- -------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS car (

@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @Transactional(readOnly = true)
@@ -95,5 +96,22 @@ public class StatisticsService {
                 hotCars,
                 stores
         );
+    }
+
+    public List<StatisticsDtos.RevenueTrendResponse> revenueTrend(int days) {
+        int safeDays = Math.min(Math.max(days, 1), 31);
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(safeDays - 1L);
+        Map<LocalDate, BigDecimal> revenueByDate = paymentRepository.findByPayStatus(PayStatus.SUCCESS).stream()
+                .filter(payment -> payment.getPayTime() != null)
+                .filter(payment -> !payment.getPayTime().toLocalDate().isBefore(startDate))
+                .collect(Collectors.groupingBy(
+                        payment -> payment.getPayTime().toLocalDate(),
+                        Collectors.reducing(BigDecimal.ZERO, PaymentOrder::getPayAmount, BigDecimal::add)
+                ));
+        return IntStream.range(0, safeDays)
+                .mapToObj(startDate::plusDays)
+                .map(date -> new StatisticsDtos.RevenueTrendResponse(date.toString(), revenueByDate.getOrDefault(date, BigDecimal.ZERO)))
+                .toList();
     }
 }

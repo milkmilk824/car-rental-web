@@ -25,4 +25,7 @@ public final class StatisticsDtos {
 
     public record StorePerformanceResponse(Long storeId, String storeName, long orderCount) {
     }
+
+    public record RevenueTrendResponse(String date, BigDecimal revenue) {
+    }
 }

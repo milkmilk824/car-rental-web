@@ -6,6 +6,7 @@ import type {
   CarRequest,
   CarSearchParams,
   CarStatus,
+  CarAvailability,
   Category,
   CategoryRequest,
   Comment,
@@ -19,8 +20,11 @@ import type {
   PayType,
   RentalOrder,
   RefundRequest,
+  RevenueTrendPoint,
   Store,
   StoreRequest,
+  StoreStaffBinding,
+  UploadResponse,
   User,
   UserStatus,
 } from "../types";
@@ -57,7 +61,7 @@ type RequestOptions = RequestInit & { auth?: boolean };
 
 async function request<T>(path: string, options: RequestOptions = {}) {
   const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type") && options.body) {
+  if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   const token = getStoredToken();
@@ -101,7 +105,10 @@ export const api = {
   cars: (params: CarSearchParams = {}) => request<PageResult<Car>>(`/api/cars?${queryString(params)}`, { auth: false }),
   categories: () => request<Category[]>("/api/cars/categories", { auth: false }),
   carDetail: (id: number) => request<Car>(`/api/cars/${id}`, { auth: false }),
+  carAvailability: (id: number, startTime: string, endTime: string) =>
+    request<CarAvailability>(`/api/cars/${id}/availability?${queryString({ startTime, endTime })}`, { auth: false }),
   stores: () => request<Store[]>("/api/stores", { auth: false }),
+  myStores: () => request<Store[]>("/api/store/my-stores"),
   createOrder: (payload: {
     carId: number;
     pickupStoreId: number;
@@ -156,6 +163,7 @@ export const api = {
       method: "DELETE",
     }),
   dashboard: () => request<DashboardStats>("/api/admin/dashboard"),
+  revenueTrend: (days = 7) => request<RevenueTrendPoint[]>(`/api/admin/dashboard/revenue-trend?${queryString({ days })}`),
   adminCars: (params: CarSearchParams = {}) => request<PageResult<Car>>(`/api/cars?${queryString(params)}`),
   createCategory: (payload: CategoryRequest) =>
     request<Category>("/api/admin/cars/categories", {
@@ -206,6 +214,11 @@ export const api = {
       method: "DELETE",
     }),
   adminStores: () => request<Store[]>("/api/stores"),
+  bindStoreStaff: (storeId: number, userId: number) =>
+    request<StoreStaffBinding>(`/api/admin/stores/${storeId}/staff/${userId}`, { method: "POST" }),
+  unbindStoreStaff: (storeId: number, userId: number) =>
+    request<void>(`/api/admin/stores/${storeId}/staff/${userId}`, { method: "DELETE" }),
+  storeStaff: (storeId: number) => request<StoreStaffBinding[]>(`/api/admin/stores/${storeId}/staff`),
   createStore: (payload: StoreRequest) =>
     request<Store>("/api/admin/stores", {
       method: "POST",
@@ -248,4 +261,12 @@ export const api = {
       method: "PUT",
       body: jsonBody({ status }),
     }),
+  uploadCarImage: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request<UploadResponse>("/api/admin/upload/car-image", {
+      method: "POST",
+      body,
+    });
+  },
 };

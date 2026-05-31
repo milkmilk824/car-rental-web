@@ -18,3 +18,8 @@ app:
     callback-secret: ${PAYMENT_CALLBACK_SECRET:change-me-local-secret}
   data-init:
     enabled: false
+  bootstrap:
+    enabled: ${APP_BOOTSTRAP_ENABLED:false}
+    secret: ${APP_BOOTSTRAP_SECRET:}
+  upload:
+    dir: ${APP_UPLOAD_DIR:uploads}

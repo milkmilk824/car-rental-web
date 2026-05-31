@@ -29,12 +29,20 @@ public class OrderService {
     private final UserService userService;
     private final CarService carService;
     private final StoreService storeService;
+    private final StoreStaffService storeStaffService;
 
-    public OrderService(RentalOrderRepository orderRepository, UserService userService, CarService carService, StoreService storeService) {
+    public OrderService(
+            RentalOrderRepository orderRepository,
+            UserService userService,
+            CarService carService,
+            StoreService storeService,
+            StoreStaffService storeStaffService
+    ) {
         this.orderRepository = orderRepository;
         this.userService = userService;
         this.carService = carService;
         this.storeService = storeService;
+        this.storeStaffService = storeStaffService;
     }
 
     public OrderDtos.OrderResponse create(Long userId, OrderDtos.OrderCreateRequest request) {
@@ -45,6 +53,9 @@ public class OrderService {
         Car car = carService.findByIdForUpdate(request.carId());
         if (car.getStatus() != CarStatus.AVAILABLE) {
             throw BusinessException.badRequest("车辆当前不可租");
+        }
+        if (carService.hasOverlappingReservation(car.getId(), request.startTime(), request.endTime())) {
+            throw BusinessException.badRequest("该时间段已被预订");
         }
         Store pickupStore = storeService.findById(request.pickupStoreId());
         Store returnStore = storeService.findById(request.returnStoreId());
@@ -83,7 +94,8 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderDtos.OrderResponse> storeOrders(Long storeId) {
+    public List<OrderDtos.OrderResponse> storeOrders(Long storeId, CurrentUser currentUser) {
+        storeStaffService.ensureStoreAccess(storeId, currentUser);
         return orderRepository.findByPickupStoreIdOrReturnStoreIdOrderByCreateTimeDesc(storeId, storeId).stream()
                 .map(DtoMapper::toOrderResponse)
                 .toList();
@@ -121,8 +133,9 @@ public class OrderService {
         return DtoMapper.toOrderResponse(order);
     }
 
-    public OrderDtos.OrderResponse confirmPickup(Long orderId) {
+    public OrderDtos.OrderResponse confirmPickup(Long orderId, CurrentUser currentUser) {
         RentalOrder order = findById(orderId);
+        storeStaffService.ensureStoreAccess(order.getPickupStore().getId(), currentUser);
         if (order.getStatus() != OrderStatus.PENDING_PICKUP) {
             throw BusinessException.badRequest("订单不是待取车状态");
         }
@@ -131,8 +144,9 @@ public class OrderService {
         return DtoMapper.toOrderResponse(order);
     }
 
-    public OrderDtos.OrderResponse confirmReturn(Long orderId) {
+    public OrderDtos.OrderResponse confirmReturn(Long orderId, CurrentUser currentUser) {
         RentalOrder order = findById(orderId);
+        storeStaffService.ensureStoreAccess(order.getReturnStore().getId(), currentUser);
         if (order.getStatus() != OrderStatus.RENTING && order.getStatus() != OrderStatus.PENDING_RETURN) {
             throw BusinessException.badRequest("订单不是租赁中状态");
         }
