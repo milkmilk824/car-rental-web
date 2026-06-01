@@ -1,10 +1,15 @@
 import {
   ArrowRightOutlined,
   BankOutlined,
+  CalendarOutlined,
   CarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  CreditCardOutlined,
   SafetyCertificateOutlined,
+  SearchOutlined,
+  ShopOutlined,
+  StarFilled,
 } from "@ant-design/icons";
 import { Button } from "antd";
 import gsap from "gsap";
@@ -15,13 +20,28 @@ import { Link } from "react-router-dom";
 gsap.registerPlugin(ScrollTrigger);
 
 const servicePromises = [
-  { title: "精选车源", text: "严选优质品牌与车况，定期检测与保养，安全可靠。", asset: "/svg_icons/car.svg", tone: "car" },
+  { title: "精选车源", text: "严选优质品牌与车况，定期检测与保养，安全可靠。", asset: "/images/home-hero-road.png", tone: "car" },
   { title: "透明费用", text: "费用清晰透明，无隐形收费，价格公开，安心可控。", asset: "/svg_icons/shield_yen.svg", tone: "fee" },
   { title: "门店履约", text: "全国门店覆盖，就近取还，专业服务，高效交付。", asset: "/svg_icons/building.svg", tone: "store" },
   { title: "合同保障", text: "电子合同具备法律效力，支付安全有保障，权益无忧。", asset: "/svg_icons/document_shield.svg", tone: "contract" },
 ];
 
-const workflow = ["搜车", "预约", "支付", "到店取车", "还车验收", "评价归档"];
+const workflow = [
+  { title: "搜车", text: "多维筛选，找到心仪车辆", icon: SearchOutlined },
+  { title: "预约", text: "选择时间与门店，确认预约", icon: CalendarOutlined },
+  { title: "支付", text: "在线支付，安全便捷", icon: CreditCardOutlined },
+  { title: "到店取车", text: "门店验车，快速办理取车", icon: ShopOutlined },
+  { title: "还车验收", text: "门店验收，结算费用", icon: CarOutlined },
+  { title: "评价归档", text: "服务评价，行程归档", icon: StarFilled },
+];
+
+const enterprisePartners = ["京东物流", "中国移动", "滴滴出行", "携程旅行", "SF Express", "中信证券"];
+
+const enterpriseHighlights = [
+  { label: "统一用车预算", value: "部门、门店、项目维度独立核算" },
+  { label: "跨城履约网络", value: "支持异地取还、合同归档与发票追踪" },
+  { label: "运营可视化", value: "订单、车辆、门店和支付流水集中管理" },
+];
 
 const metrics = [
   { value: "200+", label: "城市门店", icon: BankOutlined },
@@ -35,10 +55,15 @@ export function LandingPage() {
 
   useEffect(() => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const header = pageRef.current?.querySelector(".public-header");
+    const syncHeader = () => header?.classList.toggle("is-scrolled", window.scrollY > 72);
+    syncHeader();
+    window.addEventListener("scroll", syncHeader, { passive: true });
+
     const context = gsap.context(() => {
       gsap.set(".hero-line", { yPercent: 105, autoAlpha: 0 });
       gsap.set(".hero-car", { x: 80, scale: 0.96, autoAlpha: 0 });
-      gsap.set(".metric-tile, .service-panel, .workflow-step", { y: 36, autoAlpha: 0 });
+      gsap.set(".metric-tile, .service-panel, .workflow-step, .enterprise-card, .partner-logo", { y: 36, autoAlpha: 0 });
 
       gsap
         .timeline({ defaults: { ease: "power3.out", duration: reduceMotion ? 0 : 0.9 } })
@@ -94,8 +119,23 @@ export function LandingPage() {
           start: "top 70%",
         },
       });
+
+      gsap.to(".enterprise-card, .partner-logo", {
+        y: 0,
+        autoAlpha: 1,
+        stagger: 0.07,
+        duration: reduceMotion ? 0 : 0.55,
+        ease: "power2.out",
+        scrollTrigger: {
+          trigger: ".enterprise-section",
+          start: "top 76%",
+        },
+      });
     }, pageRef);
-    return () => context.revert();
+    return () => {
+      window.removeEventListener("scroll", syncHeader);
+      context.revert();
+    };
   }, []);
 
   return (
@@ -216,25 +256,44 @@ export function LandingPage() {
             <div className="workflow-line">
               <div className="workflow-line-fill" />
             </div>
-            {workflow.map((step, index) => (
-              <div className="workflow-step" key={step}>
+            {workflow.map(({ title, text, icon: Icon }, index) => (
+              <div className="workflow-step" key={title}>
+                <span className="workflow-icon">
+                  <Icon />
+                </span>
                 <strong>{String(index + 1).padStart(2, "0")}</strong>
-                <span>{step}</span>
+                <b>{title}</b>
+                <span>{text}</span>
               </div>
             ))}
           </div>
         </section>
 
         <section className="enterprise-section" id="enterprise">
-          <div>
+          <div className="enterprise-copy">
             <span>企业方案</span>
-            <h2>适合门店连锁、企业用车、平台化租赁运营</h2>
+            <h2>众多企业与用户的共同选择</h2>
+            <p>面向门店连锁、企业用车与平台化租赁运营，DrivePilot 把车辆、合同、支付与门店履约放进同一套在线工作流。</p>
           </div>
-          <Link to="/login">
-            <Button type="primary" size="large">
-              进入平台
-            </Button>
-          </Link>
+          <div className="partner-rail" aria-label="合作企业">
+            {enterprisePartners.map((partner, index) => (
+              <div className="partner-logo" key={partner}>
+                <i>{String(index + 1).padStart(2, "0")}</i>
+                <span>{partner}</span>
+              </div>
+            ))}
+          </div>
+          <div className="enterprise-card-grid">
+            {enterpriseHighlights.map((item) => (
+              <article className="enterprise-card" key={item.label}>
+                <strong>{item.label}</strong>
+                <p>{item.value}</p>
+              </article>
+            ))}
+            <Link to="/login" className="enterprise-cta">
+              进入平台 <ArrowRightOutlined />
+            </Link>
+          </div>
         </section>
       </main>
       <footer className="landing-footer" id="footer">
