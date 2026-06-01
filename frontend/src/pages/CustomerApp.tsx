@@ -46,6 +46,18 @@ const orderStatusText: Record<RentalOrder["status"], string> = {
 
 const orderSteps = ["待支付", "待取车", "租赁中", "已完成"];
 
+const customerNavItems = [
+  { label: "首页", target: "app-top" },
+  { label: "选车", target: "recommend" },
+  { label: "门店", target: "store-network" },
+  { label: "我的行程", target: "my-trips" },
+  { label: "企业服务", target: "enterprise-service" },
+  { label: "帮助中心", target: "help-center" },
+];
+
+const fallbackRecommendTabs = ["精选推荐", "经济型", "SUV", "商务型", "豪华型", "新能源"];
+const tripTabs = ["进行中", "待支付", "已完成", "已取消"];
+
 function carImage(car: Car, index = 0) {
   const source = car.imageUrls?.[0] || fallbackImages[index % fallbackImages.length];
   if (source.startsWith("/")) return source;
@@ -85,6 +97,11 @@ export function CustomerApp() {
   const { user, logout, updateUser } = useAuth();
   const queryClient = useQueryClient();
   const pageRef = useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = useState("app-top");
+  const [activeRecommendTab, setActiveRecommendTab] = useState("精选推荐");
+  const [showAllCars, setShowAllCars] = useState(false);
+  const [activeTripTab, setActiveTripTab] = useState("进行中");
+  const [ordersModalOpen, setOrdersModalOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [city, setCity] = useState<string>();
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
@@ -99,9 +116,12 @@ export function CustomerApp() {
   const [renewOrder, setRenewOrder] = useState<RentalOrder | null>(null);
 
   const storesQuery = useQuery({ queryKey: ["stores"], queryFn: api.stores });
+  const categoriesQuery = useQuery({ queryKey: ["car-categories"], queryFn: api.categories });
+  const categories = useMemo(() => categoriesQuery.data || [], [categoriesQuery.data]);
+  const activeCategory = categories.find((category) => category.categoryName === activeRecommendTab);
   const carsQuery = useQuery({
-    queryKey: ["cars", keyword, city],
-    queryFn: () => api.cars({ status: "AVAILABLE", keyword, city, size: 12 }),
+    queryKey: ["cars", keyword, city, activeCategory?.id, showAllCars],
+    queryFn: () => api.cars({ status: "AVAILABLE", keyword, city, categoryId: activeCategory?.id, size: showAllCars ? 24 : 12 }),
   });
   const ordersQuery = useQuery({ queryKey: ["my-orders"], queryFn: api.myOrders });
   const profileQuery = useQuery({ queryKey: ["profile"], queryFn: api.profile });
@@ -110,8 +130,29 @@ export function CustomerApp() {
   const cars = useMemo(() => carsQuery.data?.items || [], [carsQuery.data]);
   const orders = useMemo(() => ordersQuery.data || [], [ordersQuery.data]);
   const profile = profileQuery.data || user;
-  const latestOrder = orders[0];
-  const activeOrder = latestOrder;
+  const recommendTabs = useMemo(() => {
+    const categoryNames = categories.map((category) => category.categoryName).filter(Boolean);
+    return Array.from(new Set([...fallbackRecommendTabs, ...categoryNames]));
+  }, [categories]);
+  const filteredCars = useMemo(() => {
+    if (activeRecommendTab === "精选推荐" || activeCategory) return cars;
+    const normalized = activeRecommendTab.toLowerCase();
+    return cars.filter((car) =>
+      [car.category?.categoryName, car.carName, car.brand, car.model]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(normalized)),
+    );
+  }, [activeCategory, activeRecommendTab, cars]);
+  const displayedCars = showAllCars ? filteredCars : filteredCars.slice(0, 4);
+  const filteredOrders = useMemo(() => {
+    if (activeTripTab === "进行中") {
+      return orders.filter((order) => ["PENDING_PICKUP", "RENTING", "PENDING_RETURN"].includes(order.status));
+    }
+    if (activeTripTab === "待支付") return orders.filter((order) => order.status === "PENDING_PAYMENT");
+    if (activeTripTab === "已完成") return orders.filter((order) => order.status === "COMPLETED");
+    return orders.filter((order) => order.status === "CANCELLED");
+  }, [activeTripTab, orders]);
+  const activeOrder = filteredOrders[0];
   const commentsQuery = useQuery({
     queryKey: ["car-comments", activeOrder?.car.id],
     queryFn: () => api.carComments(activeOrder!.car.id),
@@ -139,6 +180,18 @@ export function CustomerApp() {
   const totalAmount = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
 
   const cityOptions = useMemo(() => Array.from(new Set(stores.map((store) => store.city))), [stores]);
+
+  const scrollToSection = (target: string) => {
+    setActiveSection(target);
+    const nextHash = target === "app-top" ? window.location.pathname : `#${target}`;
+    window.history.replaceState(null, "", nextHash);
+    document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleRecommendTabChange = (tab: string) => {
+    setActiveRecommendTab(tab);
+    setShowAllCars(false);
+  };
 
   const openBooking = (car: Car) => {
     setBookingCar(car);
@@ -314,7 +367,7 @@ export function CustomerApp() {
   const disabledDate: RangePickerProps["disabledDate"] = (current) => current && current < dayjs().startOf("day");
 
   return (
-    <div className="customer-page rental-home" ref={pageRef}>
+    <div className="customer-page rental-home" id="app-top" ref={pageRef}>
       <header className="rental-nav">
         <Link className="rental-brand" to="/">
           <span className="brand-symbol">D</span>
@@ -326,9 +379,17 @@ export function CustomerApp() {
           上海
         </button>
         <nav>
-          {["首页", "选车", "门店", "我的行程", "企业服务", "帮助中心"].map((item, index) => (
-            <a className={index === 0 ? "active" : ""} href={index === 1 ? "#recommend" : "#"} key={item}>
-              {item}
+          {customerNavItems.map((item) => (
+            <a
+              className={activeSection === item.target ? "active" : ""}
+              href={`#${item.target}`}
+              key={item.target}
+              onClick={(event) => {
+                event.preventDefault();
+                scrollToSection(item.target);
+              }}
+            >
+              {item.label}
             </a>
           ))}
         </nav>
@@ -438,7 +499,7 @@ export function CustomerApp() {
                 onChange={(value) => setRange(value as [Dayjs, Dayjs] | null)}
               />
             </label>
-            <Button type="primary" size="large" onClick={() => document.querySelector("#recommend")?.scrollIntoView()}>
+            <Button type="primary" size="large" onClick={() => scrollToSection("recommend")}>
               开始选车
             </Button>
           </div>
@@ -454,22 +515,28 @@ export function CustomerApp() {
           <div className="recommend-header">
             <h2>为你推荐</h2>
             <div className="recommend-tabs">
-              {["精选推荐", "经济型", "SUV", "商务型", "豪华型", "新能源"].map((item, index) => (
-                <button className={index === 0 ? "active" : ""} key={item}>
+              {recommendTabs.map((item) => (
+                <button
+                  className={activeRecommendTab === item ? "active" : ""}
+                  key={item}
+                  onClick={() => handleRecommendTabChange(item)}
+                >
                   {item}
                 </button>
               ))}
             </div>
-            <Button type="text">查看全部</Button>
+            <Button type="text" onClick={() => setShowAllCars((value) => !value)}>
+              {showAllCars ? "收起" : "查看全部"}
+            </Button>
           </div>
 
           {carsQuery.isLoading ? (
             <div className="loading-panel">
               <Spin />
             </div>
-          ) : cars.length ? (
+          ) : displayedCars.length ? (
             <div className="rental-card-grid">
-              {cars.slice(0, 4).map((car, index) => (
+              {displayedCars.map((car, index) => (
                 <article className={`rental-car-card ${index === 1 ? "featured" : ""}`} key={car.id}>
                   <button onClick={() => setSelectedCar(car)}>
                     <img src={carImage(car, index)} alt={car.carName} />
@@ -504,20 +571,26 @@ export function CustomerApp() {
               ))}
             </div>
           ) : (
-            <Empty description="暂无匹配车辆" />
+            <Empty description={`暂无${activeRecommendTab}车辆`} />
           )}
         </section>
 
-        <aside className="trip-panel">
+        <aside className="trip-panel" id="my-trips">
           <div className="trip-header">
             <h2>我的行程</h2>
-            <Button type="text">查看全部</Button>
+            <Button type="text" onClick={() => setOrdersModalOpen(true)}>
+              查看全部
+            </Button>
           </div>
           <div className="trip-tabs">
-            {["进行中", "待支付", "已完成", "已取消"].map((item, index) => (
-              <span className={index === 0 ? "active" : ""} key={item}>
+            {tripTabs.map((item) => (
+              <button
+                className={activeTripTab === item ? "active" : ""}
+                key={item}
+                onClick={() => setActiveTripTab(item)}
+              >
                 {item}
-              </span>
+              </button>
             ))}
           </div>
           {activeOrder ? (
@@ -599,24 +672,83 @@ export function CustomerApp() {
         </aside>
       </main>
 
-      <section className="service-shortcuts">
-        {[
-          ["免押租车", "最高可享 8000 免押额度", GiftOutlined],
-          ["企业专享", "用车管理 高效便捷", FileDoneOutlined],
-          ["积分商城", "积分兑换 精选好礼", CrownOutlined],
-          ["24/7 客服", "专业服务 随时在线", CustomerServiceOutlined],
-        ].map(([title, text, Icon]) => {
-          const ShortcutIcon = Icon as typeof GiftOutlined;
-          return (
-            <article key={title as string}>
-              <ShortcutIcon />
+      <section className="customer-section store-network" id="store-network">
+        <div className="customer-section-heading">
+          <span>门店网络</span>
+          <h2>常用城市门店，取还车节点清晰可见</h2>
+          <p>门店、营业时间和联系电话集中展示，选车前就能确认履约位置。</p>
+        </div>
+        <div className="store-card-grid">
+          {stores.slice(0, 4).map((store) => (
+            <article key={store.id}>
+              <EnvironmentOutlined />
               <div>
+                <strong>{store.storeName}</strong>
+                <span>{store.city} · {store.address}</span>
+                <small>{store.businessHours || "09:00-21:00"} · {store.phone || "400-888-8899"}</small>
+              </div>
+              <Tag color={store.status === "OPEN" ? "green" : "red"}>
+                {store.status === "OPEN" ? "营业中" : "休息中"}
+              </Tag>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="customer-section enterprise-service" id="enterprise-service">
+        <div className="customer-section-heading">
+          <span>企业服务</span>
+          <h2>企业用车、门店协同与合同归档统一管理</h2>
+          <p>适合行政用车、门店连锁和长期租赁团队，预算、订单、支付、合同都可以在线追踪。</p>
+        </div>
+        <div className="enterprise-service-grid">
+          {[
+            ["企业长租", "按月/季度配置固定车辆，支持多门店交付与异地归还。", FileDoneOutlined],
+            ["费用管控", "订单、押金、支付流水与发票状态统一归集，减少线下对账。", SafetyCertificateOutlined],
+            ["会员权益", "企业员工共享免押额度、积分权益与专属客服通道。", CrownOutlined],
+          ].map(([title, text, Icon]) => {
+            const ServiceIcon = Icon as typeof FileDoneOutlined;
+            return (
+              <article key={title as string}>
+                <ServiceIcon />
                 <strong>{title as string}</strong>
                 <span>{text as string}</span>
-              </div>
-            </article>
-          );
-        })}
+              </article>
+            );
+          })}
+          <button onClick={() => setProfileOpen(true)}>
+            完善企业联系资料
+            <span>会员资料、电话和邮箱将用于门店联系与合同通知。</span>
+          </button>
+        </div>
+      </section>
+
+      <section className="service-shortcuts" id="help-center">
+        {[
+          { title: "免押租车", text: "最高可享 8000 免押额度", icon: GiftOutlined, action: () => setProfileOpen(true) },
+          {
+            title: "合同与发票",
+            text: "订单完成后自动生成合同",
+            icon: FileDoneOutlined,
+            action: () =>
+              activeOrder ? handleTripPrimaryAction(activeOrder) : message.info("暂无可查看合同的行程"),
+          },
+          { title: "积分商城", text: "积分兑换 精选好礼", icon: CrownOutlined, action: () => message.info("积分商城正在接入中") },
+          {
+            title: "24/7 客服",
+            text: "专业服务 随时在线",
+            icon: CustomerServiceOutlined,
+            action: () => message.info("客服已收到你的咨询请求"),
+          },
+        ].map(({ title, text, icon: ShortcutIcon, action }) => (
+          <article key={title} onClick={action} onKeyDown={(event) => event.key === "Enter" && action()} tabIndex={0}>
+            <ShortcutIcon />
+            <div>
+              <strong>{title}</strong>
+              <span>{text}</span>
+            </div>
+          </article>
+        ))}
       </section>
 
       <Drawer
@@ -712,6 +844,42 @@ export function CustomerApp() {
             <p>合同文件：{contract.contractUrl}</p>
             <Tag color="cyan">{contract.signStatus}</Tag>
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={ordersModalOpen}
+        onCancel={() => setOrdersModalOpen(false)}
+        footer={null}
+        title="全部行程"
+        width={820}
+      >
+        {orders.length ? (
+          <div className="order-list-modal">
+            {orders.map((order) => (
+              <article key={order.id}>
+                <img src={carImage(order.car)} alt={order.car.carName} />
+                <div>
+                  <strong>{order.car.carName}</strong>
+                  <span>{order.orderNo}</span>
+                  <small>
+                    {formatDateTime(order.startTime)} 至 {formatDateTime(order.endTime)}
+                  </small>
+                </div>
+                <Tag color={statusColor(order.status)}>{orderStatusText[order.status]}</Tag>
+                <Button
+                  onClick={() => {
+                    setOrdersModalOpen(false);
+                    handleTripPrimaryAction(order);
+                  }}
+                >
+                  {order.status === "COMPLETED" ? "查看合同" : "查看进度"}
+                </Button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <Empty description="暂无行程" />
         )}
       </Modal>
 

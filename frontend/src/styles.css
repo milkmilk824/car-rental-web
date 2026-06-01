@@ -1734,6 +1734,15 @@ select {
   background: #f5f8fc;
 }
 
+#app-top,
+#recommend,
+#my-trips,
+#store-network,
+#enterprise-service,
+#help-center {
+  scroll-margin-top: 84px;
+}
+
 .rental-nav {
   position: sticky;
   top: 0;
@@ -1801,11 +1810,22 @@ select {
   height: 62px;
   border-bottom: 3px solid transparent;
   white-space: nowrap;
+  transition: color 160ms ease, border-color 160ms ease;
 }
 
-.rental-nav nav a.active {
+.rental-nav nav a.active,
+.rental-nav nav a:hover {
   color: #2468ff;
   border-color: #2468ff;
+}
+
+.rental-nav nav a:focus,
+.rental-nav nav a:focus-visible,
+.recommend-tabs button:focus,
+.recommend-tabs button:focus-visible,
+.trip-tabs button:focus,
+.trip-tabs button:focus-visible {
+  outline: none;
 }
 
 .rental-nav-search {
@@ -2217,9 +2237,16 @@ select {
   margin-bottom: 14px;
 }
 
-.trip-tabs span {
+.trip-tabs button {
   padding-bottom: 8px;
   border-bottom: 2px solid transparent;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-weight: inherit;
 }
 
 .trip-card,
@@ -2306,6 +2333,133 @@ select {
   font-size: 42px;
 }
 
+.customer-section {
+  width: min(1430px, calc(100vw - 32px));
+  margin: 18px auto 0;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 40px rgba(29, 45, 69, 0.08);
+}
+
+.customer-section-heading {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+  margin-bottom: 20px;
+}
+
+.customer-section-heading span {
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.customer-section-heading h2 {
+  margin: 0;
+  color: #172033;
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1.16;
+}
+
+.customer-section-heading p {
+  margin: 0;
+  color: #667186;
+  line-height: 1.75;
+}
+
+.store-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.store-card-grid article {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  min-height: 126px;
+  padding: 18px;
+  border: 1px solid #e0e7f1;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+}
+
+.store-card-grid svg {
+  padding: 10px;
+  border-radius: 8px;
+  color: #2468ff;
+  background: #eaf1ff;
+  font-size: 42px;
+}
+
+.store-card-grid div,
+.enterprise-service-grid article,
+.enterprise-service-grid button,
+.order-list-modal article > div {
+  display: grid;
+  gap: 7px;
+}
+
+.store-card-grid strong,
+.enterprise-service-grid strong {
+  color: #172033;
+  font-size: 16px;
+}
+
+.store-card-grid span,
+.store-card-grid small,
+.enterprise-service-grid span,
+.order-list-modal span,
+.order-list-modal small {
+  color: #667186;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.enterprise-service {
+  background:
+    radial-gradient(circle at 90% 12%, rgba(0, 167, 183, 0.12), transparent 30%),
+    #fff;
+}
+
+.enterprise-service-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.enterprise-service-grid article,
+.enterprise-service-grid button {
+  min-height: 154px;
+  padding: 20px;
+  border: 1px solid #e0e7f1;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+
+.enterprise-service-grid article svg {
+  color: var(--teal);
+  font-size: 30px;
+}
+
+.enterprise-service-grid button {
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #2468ff, #00a7b7);
+  cursor: pointer;
+  font-weight: 850;
+  box-shadow: 0 20px 44px rgba(37, 99, 235, 0.18);
+}
+
+.enterprise-service-grid button span {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 560;
+}
+
 .service-shortcuts {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2327,6 +2481,15 @@ select {
   min-height: 86px;
   padding: 18px 26px;
   background: #fff;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.service-shortcuts article:hover,
+.service-shortcuts article:focus {
+  background: #f8fbff;
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .service-shortcuts svg {
@@ -2345,6 +2508,35 @@ select {
 .service-shortcuts span {
   color: #7a8497;
   font-size: 13px;
+}
+
+.order-list-modal {
+  display: grid;
+  gap: 12px;
+  max-height: 62vh;
+  overflow: auto;
+}
+
+.order-list-modal article {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.order-list-modal img {
+  width: 118px;
+  height: 74px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.order-list-modal strong {
+  color: #172033;
 }
 
 .portal-page {
@@ -2450,6 +2642,8 @@ select {
   .metrics-band,
   .partner-rail,
   .enterprise-card-grid,
+  .store-card-grid,
+  .enterprise-service-grid,
   .car-rail,
   .admin-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -2501,6 +2695,8 @@ select {
   .service-grid,
   .partner-rail,
   .enterprise-card-grid,
+  .store-card-grid,
+  .enterprise-service-grid,
   .workflow-track,
   .car-rail,
   .admin-grid {
@@ -2509,8 +2705,23 @@ select {
 
   .service-section,
   .workflow-section,
-  .enterprise-section {
+  .enterprise-section,
+  .customer-section {
     width: calc(100vw - 32px);
+  }
+
+  .customer-section {
+    padding: 18px;
+  }
+
+  .store-card-grid article,
+  .order-list-modal article {
+    grid-template-columns: 1fr;
+  }
+
+  .order-list-modal img {
+    width: 100%;
+    height: 150px;
   }
 
   .service-panel {
