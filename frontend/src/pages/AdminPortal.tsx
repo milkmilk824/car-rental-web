@@ -669,7 +669,19 @@ function EditMaintenanceForm({ record, onDone, onCancel }: { record: AdminLiveRe
 
 /* ==================== Create Form Selector ==================== */
 
-function CreateFormSelector({ section, stores, onDone, onCancel }: { section: AdminSection; stores: Store[]; onDone: () => void; onCancel: () => void }) {
+function CreateFormSelector({
+  section,
+  stores,
+  cars,
+  onDone,
+  onCancel,
+}: {
+  section: AdminSection;
+  stores: Store[];
+  cars: Car[];
+  onDone: () => void;
+  onCancel: () => void;
+}) {
   const { message } = App.useApp();
   if (section === "cars") return <CreateCarForm stores={stores} message={message} onDone={onDone} onCancel={onCancel} />;
   if (section === "stores") return <CreateStoreForm message={message} onDone={onDone} onCancel={onCancel} />;
@@ -682,7 +694,7 @@ function CreateFormSelector({ section, stores, onDone, onCancel }: { section: Ad
       </div>
     );
   }
-  if (section === "maintenance") return <CreateMaintenanceForm message={message} onDone={onDone} onCancel={onCancel} />;
+  if (section === "maintenance") return <CreateMaintenanceForm cars={cars} message={message} onDone={onDone} onCancel={onCancel} />;
   return (
     <div style={{ padding: 24, textAlign: "center", color: "#718096" }}>
       <p>该模块由订单、支付或履约流程自动生成。</p>
@@ -852,9 +864,27 @@ function CreateUserForm({ message, onDone, onCancel }: { message: ReturnType<typ
   );
 }
 
-function CreateMaintenanceForm({ message, onDone, onCancel }: { message: ReturnType<typeof App.useApp>["message"]; onDone: () => void; onCancel: () => void }) {
+function CreateMaintenanceForm({
+  cars,
+  message,
+  onDone,
+  onCancel,
+}: {
+  cars: Car[];
+  message: ReturnType<typeof App.useApp>["message"];
+  onDone: () => void;
+  onCancel: () => void;
+}) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const carOptions = useMemo(
+    () =>
+      cars.map((car) => ({
+        label: `${car.carName} · ${car.plateNumber} · ${car.store.storeName} · ${carStatusLabel[car.status]}`,
+        value: car.id,
+      })),
+    [cars],
+  );
   const createMutation = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       api.createMaintenance({
@@ -869,7 +899,16 @@ function CreateMaintenanceForm({ message, onDone, onCancel }: { message: ReturnT
   return (
     <Form form={form} layout="vertical" initialValues={{ type: "MAINTENANCE", cost: 0 }}
       onFinish={(v) => { setLoading(true); createMutation.mutate(v); }}>
-      <Form.Item name="carId" label="车辆ID" rules={[{ required: true }]}><InputNumber style={{ width: "100%" }} /></Form.Item>
+      <Form.Item name="carId" label="车辆" rules={[{ required: true, message: "请选择车辆" }]}>
+        <Select
+          showSearch
+          disabled={!carOptions.length}
+          optionFilterProp="label"
+          placeholder={carOptions.length ? "选择车辆 / 车牌 / 门店" : "请先在车辆管理创建车辆"}
+          options={carOptions}
+          notFoundContent="暂无可选车辆"
+        />
+      </Form.Item>
       <Form.Item name="type" label="类型" rules={[{ required: true }]}>
         <Select options={[{ label: "维修", value: "REPAIR" }, { label: "保养", value: "MAINTENANCE" }]} />
       </Form.Item>
@@ -1724,6 +1763,7 @@ export function AdminPortal() {
         <CreateFormSelector
           section={currentSection}
           stores={stores}
+          cars={cars}
           onDone={() => { setCreateOpen(false); invalidateAdminData(); }}
           onCancel={() => setCreateOpen(false)}
         />
