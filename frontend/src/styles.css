@@ -3169,6 +3169,51 @@ select {
   overflow-wrap: anywhere;
 }
 
+.admin-action-panel,
+.contact-modal {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-action-panel h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 20px;
+}
+
+.admin-action-panel p,
+.contact-modal p {
+  margin: 0;
+  color: #657086;
+  line-height: 1.7;
+}
+
+.contact-modal > strong {
+  color: #172033;
+  font-size: 20px;
+}
+
+.contact-modal div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5ecf4;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.contact-modal span {
+  color: #657086;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.contact-modal b {
+  color: #172033;
+  font-size: 13px;
+}
+
 .uploaded-image-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

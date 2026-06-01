@@ -51,6 +51,13 @@ import type {
 } from "../types";
 
 type AdminEntity = Car | Store | RentalOrder | User | PaymentOrder | Contract | Comment | MaintenanceRecord;
+type ContactInfo = {
+  title: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  note?: string;
+};
 
 interface AdminLiveRecord extends AdminRecord {
   entityId: number;
@@ -68,6 +75,8 @@ const emptyComments: Comment[] = [];
 const emptyContracts: Contract[] = [];
 const emptyMaintenance: MaintenanceRecord[] = [];
 const emptyStoreStaffBindings: StoreStaffBinding[] = [];
+const editableSections: AdminSection[] = ["cars", "stores", "users", "maintenance"];
+const creatableSections: AdminSection[] = ["cars", "stores", "users", "maintenance"];
 
 const orderStatusLabel: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "待支付",
@@ -378,12 +387,107 @@ function actionLabel(section: AdminSection, record?: AdminLiveRecord) {
   if (!record) return "暂无操作";
   if (section === "cars") return "切换上下架";
   if (section === "stores") return "切换营业";
-  if (section === "orders") return "生成合同";
+  if (section === "orders") {
+    const order = record.raw as RentalOrder;
+    if (order.status === "PENDING_PAYMENT") return "取消订单";
+    if (order.status === "PENDING_PICKUP") return "确认取车";
+    if (order.status === "RENTING" || order.status === "PENDING_RETURN") return "确认还车";
+    if (order.status === "COMPLETED") return "生成合同";
+    return "查看订单";
+  }
   if (section === "users") return "切换状态";
   if (section === "payments") return "发起退款";
   if (section === "contracts") return "签署合同";
   if (section === "comments") return "移除评价";
   return "查看记录";
+}
+
+function canEditSection(section: AdminSection) {
+  return editableSections.includes(section);
+}
+
+function canCreateSection(section: AdminSection) {
+  return creatableSections.includes(section);
+}
+
+function csvCell(value: unknown) {
+  const raw = String(value ?? "");
+  return `"${raw.replaceAll('"', '""')}"`;
+}
+
+function buildContactInfo(record: AdminLiveRecord, users: User[]): ContactInfo | null {
+  if (record.section === "orders") {
+    const order = record.raw as RentalOrder;
+    return {
+      title: "订单用户",
+      name: userName(order.user),
+      phone: order.user.phone,
+      email: order.user.email,
+      note: `${order.orderNo} · ${order.car.carName}`,
+    };
+  }
+  if (record.section === "users") {
+    const target = record.raw as User;
+    return {
+      title: roleLabel[target.role],
+      name: userName(target),
+      phone: target.phone,
+      email: target.email,
+      note: target.driverLicenseNo ? "驾照已认证" : "驾照待认证",
+    };
+  }
+  if (record.section === "payments") {
+    const payment = record.raw as PaymentOrder;
+    const target = users.find((item) => item.id === payment.userId);
+    return {
+      title: "支付用户",
+      name: target ? userName(target) : `用户 ${payment.userId}`,
+      phone: target?.phone,
+      email: target?.email,
+      note: `${payment.paymentNo} · ${payStatusLabel[payment.payStatus]}`,
+    };
+  }
+  if (record.section === "contracts") {
+    const contract = record.raw as Contract;
+    const target = users.find((item) => item.id === contract.userId);
+    return {
+      title: "合同用户",
+      name: target ? userName(target) : `用户 ${contract.userId}`,
+      phone: target?.phone,
+      email: target?.email,
+      note: `${contract.contractNo} · ${contractStatusLabel[contract.signStatus]}`,
+    };
+  }
+  if (record.section === "comments") {
+    const comment = record.raw as Comment;
+    const target = users.find((item) => item.id === comment.userId);
+    return {
+      title: "评价用户",
+      name: target ? userName(target) : comment.username,
+      phone: target?.phone,
+      email: target?.email,
+      note: `订单 ${comment.orderId} · ${comment.score} 星`,
+    };
+  }
+  if (record.section === "stores") {
+    const store = record.raw as Store;
+    return {
+      title: "门店联系方式",
+      name: store.storeName,
+      phone: store.phone,
+      note: `${store.city} · ${store.address}`,
+    };
+  }
+  if (record.section === "cars") {
+    const car = record.raw as Car;
+    return {
+      title: "车辆所属门店",
+      name: car.store.storeName,
+      phone: car.store.phone,
+      note: `${car.plateNumber} · ${car.carName}`,
+    };
+  }
+  return null;
 }
 
 /* ==================== Edit Form Components ==================== */
@@ -581,7 +685,7 @@ function CreateFormSelector({ section, stores, onDone, onCancel }: { section: Ad
   if (section === "maintenance") return <CreateMaintenanceForm message={message} onDone={onDone} onCancel={onCancel} />;
   return (
     <div style={{ padding: 24, textAlign: "center", color: "#718096" }}>
-      <p>该模块暂不支持快速创建。</p>
+      <p>该模块由订单、支付或履约流程自动生成。</p>
       <Button onClick={onCancel}>关闭</Button>
     </div>
   );
@@ -793,10 +897,14 @@ export function AdminPortal() {
   const [keyword, setKeyword] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [storeFilter, setStoreFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [trendDays, setTrendDays] = useState(30);
   const [staffUserId, setStaffUserId] = useState<number>();
 
   const dashboardQuery = useQuery({ queryKey: ["admin-dashboard"], queryFn: api.dashboard });
-  const revenueTrendQuery = useQuery({ queryKey: ["admin-revenue-trend"], queryFn: () => api.revenueTrend(8) });
+  const revenueTrendQuery = useQuery({ queryKey: ["admin-revenue-trend", trendDays], queryFn: () => api.revenueTrend(trendDays) });
   const carsQuery = useQuery({ queryKey: ["admin-cars"], queryFn: () => api.adminCars({ size: 100 }) });
   const storesQuery = useQuery({ queryKey: ["admin-stores"], queryFn: api.adminStores });
   const ordersQuery = useQuery({ queryKey: ["admin-orders"], queryFn: api.adminOrders });
@@ -832,17 +940,42 @@ export function AdminPortal() {
 
   const currentSection = tableSection(activeSection);
   const currentRecords = recordsBySection[currentSection];
+  const storeFilterOptions = useMemo(
+    () => [
+      { label: "全部归属", value: "all" },
+      ...Array.from(new Set(currentRecords.map((record) => record.store).filter(Boolean))).map((value) => ({
+        label: value,
+        value,
+      })),
+    ],
+    [currentRecords],
+  );
+  const statusFilterOptions = useMemo(
+    () => [
+      { label: "全部状态", value: "all" },
+      ...Array.from(new Set(currentRecords.map((record) => record.status).filter(Boolean))).map((value) => ({
+        label: value,
+        value,
+      })),
+    ],
+    [currentRecords],
+  );
   const visibleRecords = useMemo(() => {
     const normalized = keyword.trim().toLowerCase();
     return currentRecords.filter((record) => {
-      if (!normalized) return true;
-      return [record.id, record.primary, record.secondary, record.category, record.store, record.status]
+      const storeMatched = storeFilter === "all" || record.store === storeFilter;
+      const statusMatched = statusFilter === "all" || record.status === statusFilter;
+      const keywordMatched =
+        !normalized ||
+        [record.id, record.primary, record.secondary, record.category, record.store, record.status]
         .join(" ")
         .toLowerCase()
         .includes(normalized);
+      return storeMatched && statusMatched && keywordMatched;
     });
-  }, [currentRecords, keyword]);
-  const selectedRecord = currentRecords.find((record) => record.id === selectedId) || visibleRecords[0] || currentRecords[0];
+  }, [currentRecords, keyword, statusFilter, storeFilter]);
+  const selectedRecord = visibleRecords.find((record) => record.id === selectedId) || visibleRecords[0] || currentRecords[0];
+  const selectedContact = selectedRecord ? buildContactInfo(selectedRecord, users) : null;
   const selectedStoreForStaff =
     selectedRecord?.section === "stores" ? (selectedRecord.raw as Store) : undefined;
 
@@ -897,6 +1030,8 @@ export function AdminPortal() {
     const nextRecord = recordsBySection[nextSection][0];
     setActiveSection(section);
     setSelectedId(nextRecord?.id || "");
+    setStoreFilter("all");
+    setStatusFilter("all");
   };
 
   const liveMetrics = useMemo(() => {
@@ -975,10 +1110,19 @@ export function AdminPortal() {
       }
       if (record.section === "orders") {
         const order = record.raw as RentalOrder;
-        if (order.status === "PENDING_PAYMENT" || order.status === "CANCELLED" || order.status === "REFUNDED") {
-          throw new Error("当前订单状态不能生成合同");
+        if (order.status === "PENDING_PAYMENT") {
+          return api.cancelOrder(order.id);
         }
-        return api.generateContract(order.id);
+        if (order.status === "PENDING_PICKUP") {
+          return api.confirmPickup(order.id);
+        }
+        if (order.status === "RENTING" || order.status === "PENDING_RETURN") {
+          return api.confirmReturn(order.id);
+        }
+        if (order.status === "COMPLETED") {
+          return api.generateContract(order.id);
+        }
+        throw new Error("当前订单状态无需处理");
       }
       if (record.section === "users") {
         const target = record.raw as User;
@@ -1005,7 +1149,7 @@ export function AdminPortal() {
         }
         return api.deleteComment(comment.id);
       }
-      throw new Error("该模块暂为只读");
+      throw new Error("该模块无需后台动作");
     },
     onSuccess: (_, record) => {
       invalidateAdminData();
@@ -1122,6 +1266,43 @@ export function AdminPortal() {
     actionMutation.mutate(selectedRecord);
   };
 
+  const openCreateModal = () => {
+    if (!canCreateSection(currentSection)) {
+      message.info(`${moduleTitle(currentSection)}由业务流程生成，请在对应流程中处理`);
+      return;
+    }
+    setCreateOpen(true);
+  };
+
+  const exportVisibleRecords = () => {
+    if (!visibleRecords.length) {
+      message.warning("当前筛选下暂无可导出数据");
+      return;
+    }
+    const headers = ["编号", "主体信息", "说明", "类型", "归属", "金额/指标", "状态", "支付/说明", "时间", "备注"];
+    const rows = visibleRecords.map((record) => [
+      record.id,
+      record.primary,
+      record.secondary,
+      record.category,
+      record.store,
+      record.amount,
+      record.status,
+      record.payStatus,
+      record.time,
+      record.extra,
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `drivepilot-${currentSection}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    message.success(`已导出 ${visibleRecords.length} 条${moduleTitle(currentSection)}`);
+  };
+
   const columns = useMemo<ColumnsType<AdminLiveRecord>>(
     () => [
       {
@@ -1196,8 +1377,8 @@ export function AdminPortal() {
         </Link>
         <Button type="text" icon={<MenuOutlined />} />
         <Input className="ops-search" prefix={<SearchOutlined />} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索订单、车辆、用户、门店等..." />
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-          快速创建
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+          {canCreateSection(currentSection) ? "快速创建" : "业务生成"}
         </Button>
         <button className="icon-tool badge">
           <BellOutlined />
@@ -1237,7 +1418,7 @@ export function AdminPortal() {
               <p>集中管理车源、门店、订单、支付、合同和评价，让运营动作在同一个后台闭环。</p>
             </div>
             <Space>
-              <Button icon={<ExportOutlined />} onClick={() => message.info("导出功能开发中，请通过数据库直接导出")}>导出</Button>
+              <Button icon={<ExportOutlined />} onClick={exportVisibleRecords}>导出</Button>
             </Space>
           </div>
 
@@ -1263,7 +1444,8 @@ export function AdminPortal() {
                     <span>基于支付流水生成</span>
                   </div>
                   <Select
-                    defaultValue="30"
+                    value={String(trendDays)}
+                    onChange={(value) => setTrendDays(Number(value))}
                     options={[
                       { label: "近 30 日", value: "30" },
                       { label: "近 7 日", value: "7" },
@@ -1296,10 +1478,18 @@ export function AdminPortal() {
                 ))}
             </div>
             <div className="admin-filter-row">
-              <Select defaultValue="all" options={[{ label: "全部门店", value: "all" }, ...["上海", "杭州", "苏州"].map((item) => ({ label: item, value: item }))]} />
-              <Select defaultValue="all-status" options={[{ label: "全部状态", value: "all-status" }, { label: "正常", value: "normal" }, { label: "异常", value: "exception" }]} />
+              <Select value={storeFilter} onChange={setStoreFilter} options={storeFilterOptions} />
+              <Select value={statusFilter} onChange={setStatusFilter} options={statusFilterOptions} />
               <Input prefix={<SearchOutlined />} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder={`搜索${moduleTitle(currentSection)}`} />
-              <Button onClick={() => setKeyword("")}>重置</Button>
+              <Button
+                onClick={() => {
+                  setKeyword("");
+                  setStoreFilter("all");
+                  setStatusFilter("all");
+                }}
+              >
+                重置
+              </Button>
               <Button type="primary" onClick={invalidateAdminData}>
                 查询
               </Button>
@@ -1416,15 +1606,21 @@ export function AdminPortal() {
                 <strong>{selectedRecord.amount}</strong>
               </div>
               <div className="detail-action-grid detail-motion">
-                <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>
-                  编辑
-                </Button>
+                {canEditSection(currentSection) ? (
+                  <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>
+                    编辑
+                  </Button>
+                ) : (
+                  <Button icon={<EditOutlined />} onClick={() => setSelectedId(selectedRecord.id)}>
+                    查看详情
+                  </Button>
+                )}
                 <Button type="primary" icon={<CheckCircleOutlined />} loading={actionMutation.isPending} onClick={runPrimaryAction}>
                   {actionLabel(currentSection, selectedRecord)}
                 </Button>
               </div>
-              <Button size="large" block>
-                联系用户
+              <Button size="large" block disabled={!selectedContact} onClick={() => setContactOpen(true)}>
+                {selectedContact?.title || "暂无联系方式"}
               </Button>
             </>
           ) : (
@@ -1472,10 +1668,46 @@ export function AdminPortal() {
           />
         )}
         {currentSection !== "cars" && currentSection !== "stores" && currentSection !== "users" && currentSection !== "maintenance" && (
-          <div style={{ padding: 24, textAlign: "center", color: "#718096" }}>
-            <p>该模块编辑功能不使用通用弹窗，请使用行内操作按钮。</p>
-            <Button onClick={() => setEditOpen(false)}>关闭</Button>
+          <div className="admin-action-panel">
+            <Tag color={selectedRecord ? statusTone(selectedRecord.status) : "default"}>{selectedRecord?.status}</Tag>
+            <h3>{selectedRecord?.primary}</h3>
+            <p>{selectedRecord?.extra}</p>
+            <Space style={{ justifyContent: "flex-end", width: "100%" }}>
+              <Button onClick={() => setEditOpen(false)}>关闭</Button>
+              <Button
+                type="primary"
+                loading={actionMutation.isPending}
+                onClick={() => selectedRecord && actionMutation.mutate(selectedRecord)}
+              >
+                {actionLabel(currentSection, selectedRecord)}
+              </Button>
+            </Space>
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={contactOpen}
+        title={selectedContact?.title || "联系方式"}
+        footer={null}
+        onCancel={() => setContactOpen(false)}
+        destroyOnHidden
+      >
+        {selectedContact ? (
+          <div className="contact-modal">
+            <strong>{selectedContact.name}</strong>
+            <div>
+              <span>电话</span>
+              <b>{selectedContact.phone || "暂无电话"}</b>
+            </div>
+            <div>
+              <span>邮箱</span>
+              <b>{selectedContact.email || "暂无邮箱"}</b>
+            </div>
+            <p>{selectedContact.note}</p>
+          </div>
+        ) : (
+          <Empty description="暂无联系方式" />
         )}
       </Modal>
 
