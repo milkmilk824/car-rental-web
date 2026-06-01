@@ -934,6 +934,119 @@ select {
   font-size: 34px;
 }
 
+.mini-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mini-section-title strong {
+  color: #172033;
+  font-size: 15px;
+}
+
+.mini-section-title span {
+  color: #718096;
+  font-size: 12px;
+}
+
+.car-review-section,
+.profile-modal,
+.renew-summary,
+.car-image-uploader {
+  display: grid;
+  gap: 12px;
+}
+
+.car-review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.car-review-list article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e4ebf4;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.car-review-list article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.car-review-list p {
+  margin: 0;
+  color: #4b5565;
+  line-height: 1.65;
+}
+
+.car-review-list span {
+  color: #8a96a8;
+  font-size: 12px;
+}
+
+.profile-summary {
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #e3ebf5;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.profile-summary > span {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: #111827;
+  font-weight: 850;
+}
+
+.profile-summary div {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-summary small {
+  color: #718096;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.renew-summary {
+  padding: 14px;
+  border: 1px solid #e2ebf6;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.renew-summary span,
+.renew-summary small,
+.car-image-uploader > span {
+  color: #718096;
+  font-size: 12px;
+}
+
+.renew-summary strong {
+  color: #172033;
+  font-size: 20px;
+}
+
 .booking-modal {
   display: grid;
   gap: 14px;
@@ -1530,7 +1643,7 @@ select {
 
 .nav-user {
   display: grid;
-  grid-template-columns: 36px auto auto;
+  grid-template-columns: 36px auto auto auto;
   gap: 8px;
   align-items: center;
 }
@@ -3056,6 +3169,30 @@ select {
   overflow-wrap: anywhere;
 }
 
+.uploaded-image-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.uploaded-image-list div {
+  overflow: hidden;
+  border: 1px solid #e3ebf5;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.uploaded-image-list img {
+  display: block;
+  width: 100%;
+  height: 84px;
+  object-fit: cover;
+}
+
+.uploaded-image-list .ant-btn {
+  width: 100%;
+}
+
 @media (max-width: 1260px) {
   .ops-layout,
   .admin-ops .ops-layout {
@@ -3144,7 +3281,9 @@ select {
   .staff-lane-grid,
   .ops-kpi-grid,
   .admin-kpi-grid,
-  .admin-filter-row {
+  .admin-filter-row,
+  .profile-form-grid,
+  .uploaded-image-list {
     grid-template-columns: 1fr;
   }
 

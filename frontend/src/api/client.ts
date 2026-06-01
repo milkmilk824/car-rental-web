@@ -13,6 +13,7 @@ import type {
   Contract,
   DashboardStats,
   LoginResponse,
+  LicenseRequest,
   MaintenanceRecord,
   MaintenanceRequest,
   PageResult,
@@ -24,6 +25,7 @@ import type {
   Store,
   StoreRequest,
   StoreStaffBinding,
+  UpdateProfileRequest,
   UploadResponse,
   User,
   UserStatus,
@@ -101,6 +103,17 @@ export const api = {
       method: "POST",
       body: jsonBody(values),
       auth: false,
+    }),
+  profile: () => request<User>("/api/user/profile"),
+  updateProfile: (payload: UpdateProfileRequest) =>
+    request<User>("/api/user/profile", {
+      method: "PUT",
+      body: jsonBody(payload),
+    }),
+  updateLicense: (payload: LicenseRequest) =>
+    request<User>("/api/user/license", {
+      method: "POST",
+      body: jsonBody(payload),
     }),
   cars: (params: CarSearchParams = {}) => request<PageResult<Car>>(`/api/cars?${queryString(params)}`, { auth: false }),
   categories: () => request<Category[]>("/api/cars/categories", { auth: false }),

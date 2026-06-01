@@ -33,6 +33,24 @@ class ApiFlowIntegrationTest {
         String userToken = login("zhangsan", "123456");
         String staffToken = login("staff", "123456");
 
+        mockMvc.perform(put("/api/user/profile")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone": "13800008888", "email": "zhangsan@example.com", "realName": "张三"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.realName").value("张三"));
+
+        mockMvc.perform(post("/api/user/license")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"realName": "张三", "idCard": "310101199001018888", "driverLicenseNo": "SH888888"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.driverLicenseNo").value("SH8****8888"));
+
         MvcResult carsResult = mockMvc.perform(get("/api/cars")
                         .param("status", "AVAILABLE"))
                 .andExpect(status().isOk())
@@ -89,6 +107,15 @@ class ApiFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("RENTING"));
 
+        mockMvc.perform(put("/api/orders/{orderId}/renew", orderId)
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"extraDays": 2}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rentalDays").value(5));
+
         mockMvc.perform(put("/api/store/orders/{orderId}/return", orderId)
                         .header("Authorization", "Bearer " + staffToken))
                 .andExpect(status().isOk())
@@ -116,6 +143,31 @@ class ApiFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         assertThat(commentsResult.getResponse().getContentAsString(StandardCharsets.UTF_8)).contains("车况很好");
+
+        LocalDateTime cancelStart = end.plusDays(10);
+        LocalDateTime cancelEnd = cancelStart.plusDays(1);
+        String cancelOrderBody = """
+                {
+                  "carId": %d,
+                  "pickupStoreId": %d,
+                  "returnStoreId": %d,
+                  "startTime": "%s",
+                  "endTime": "%s"
+                }
+                """.formatted(carId, storeId, storeId, cancelStart, cancelEnd);
+        MvcResult cancelOrderResult = mockMvc.perform(post("/api/orders")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelOrderBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING_PAYMENT"))
+                .andReturn();
+        long cancelOrderId = objectMapper.readTree(cancelOrderResult.getResponse().getContentAsString(StandardCharsets.UTF_8)).at("/data/id").asLong();
+
+        mockMvc.perform(put("/api/orders/{orderId}/cancel", cancelOrderId)
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
     }
 
     private String login(String username, String password) throws Exception {

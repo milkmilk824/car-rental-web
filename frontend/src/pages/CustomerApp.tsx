@@ -14,7 +14,7 @@ import {
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, DatePicker, Drawer, Empty, Form, Input, Modal, Select, Space, Spin, Tag, Timeline } from "antd";
+import { App, Button, DatePicker, Drawer, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Tag, Timeline } from "antd";
 import type { RangePickerProps } from "antd/es/date-picker";
 import dayjs, { type Dayjs } from "dayjs";
 import gsap from "gsap";
@@ -22,7 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../state/useAuth";
-import type { Car, Contract, RentalOrder, Store } from "../types";
+import type { Car, Comment, Contract, RentalOrder, Store } from "../types";
 
 const { RangePicker } = DatePicker;
 
@@ -64,9 +64,25 @@ function statusColor(status: RentalOrder["status"]) {
   return "cyan";
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return "暂无";
+  const date = dayjs(value);
+  return date.isValid() ? date.format("YYYY-MM-DD HH:mm") : value;
+}
+
+function visibleComments(comments?: Comment[]) {
+  return (comments || []).filter((comment) => comment.status !== "REMOVED");
+}
+
+function cleanProfileField(value?: string) {
+  const next = value?.trim();
+  if (!next || next.includes("*")) return undefined;
+  return next;
+}
+
 export function CustomerApp() {
   const { message } = App.useApp();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const queryClient = useQueryClient();
   const pageRef = useRef<HTMLDivElement>(null);
   const [keyword, setKeyword] = useState("");
@@ -79,6 +95,8 @@ export function CustomerApp() {
   const [contract, setContract] = useState<Contract | null>(null);
   const [contractLoading, setContractLoading] = useState(false);
   const [commentOrder, setCommentOrder] = useState<RentalOrder | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [renewOrder, setRenewOrder] = useState<RentalOrder | null>(null);
 
   const storesQuery = useQuery({ queryKey: ["stores"], queryFn: api.stores });
   const carsQuery = useQuery({
@@ -86,10 +104,12 @@ export function CustomerApp() {
     queryFn: () => api.cars({ status: "AVAILABLE", keyword, city, size: 12 }),
   });
   const ordersQuery = useQuery({ queryKey: ["my-orders"], queryFn: api.myOrders });
+  const profileQuery = useQuery({ queryKey: ["profile"], queryFn: api.profile });
 
   const stores = useMemo(() => storesQuery.data || [], [storesQuery.data]);
   const cars = useMemo(() => carsQuery.data?.items || [], [carsQuery.data]);
   const orders = useMemo(() => ordersQuery.data || [], [ordersQuery.data]);
+  const profile = profileQuery.data || user;
   const latestOrder = orders[0];
   const activeOrder = latestOrder;
   const commentsQuery = useQuery({
@@ -110,6 +130,12 @@ export function CustomerApp() {
       ),
     [activeOrder, commentsQuery.data, user?.id],
   );
+  const selectedCarCommentsQuery = useQuery({
+    queryKey: ["car-comments", selectedCar?.id],
+    queryFn: () => api.carComments(selectedCar!.id),
+    enabled: Boolean(selectedCar?.id),
+  });
+  const selectedCarComments = visibleComments(selectedCarCommentsQuery.data);
   const totalAmount = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
 
   const cityOptions = useMemo(() => Array.from(new Set(stores.map((store) => store.city))), [stores]);
@@ -183,6 +209,70 @@ export function CustomerApp() {
     },
     onError: (error) => message.error(error instanceof Error ? error.message : "下单失败"),
   });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (values: { phone?: string; email?: string; realName?: string }) =>
+      api.updateProfile({
+        phone: cleanProfileField(values.phone),
+        email: cleanProfileField(values.email),
+        realName: cleanProfileField(values.realName),
+      }),
+    onSuccess: (nextUser) => {
+      updateUser(nextUser);
+      queryClient.setQueryData(["profile"], nextUser);
+      message.success("会员资料已更新");
+    },
+    onError: (error) => message.error(error instanceof Error ? error.message : "资料更新失败"),
+  });
+
+  const updateLicenseMutation = useMutation({
+    mutationFn: (values: { realName: string; idCard: string; driverLicenseNo: string }) =>
+      api.updateLicense({
+        realName: values.realName.trim(),
+        idCard: values.idCard.trim(),
+        driverLicenseNo: values.driverLicenseNo.trim(),
+      }),
+    onSuccess: (nextUser) => {
+      updateUser(nextUser);
+      queryClient.setQueryData(["profile"], nextUser);
+      message.success("驾照认证信息已保存");
+    },
+    onError: (error) => message.error(error instanceof Error ? error.message : "驾照信息保存失败"),
+  });
+
+  const cancelOrderMutation = useMutation({
+    mutationFn: (order: RentalOrder) => api.cancelOrder(order.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["cars"] });
+      message.success("订单已取消");
+    },
+    onError: (error) => message.error(error instanceof Error ? error.message : "订单取消失败"),
+  });
+
+  const renewOrderMutation = useMutation({
+    mutationFn: (values: { extraDays: number }) => api.renewOrder(renewOrder!.id, values.extraDays),
+    onSuccess: (order) => {
+      setRenewOrder(null);
+      queryClient.invalidateQueries({ queryKey: ["my-orders"] });
+      message.success(`已续租至 ${formatDateTime(order.endTime)}`);
+    },
+    onError: (error) => message.error(error instanceof Error ? error.message : "续租失败"),
+  });
+
+  const confirmCancelOrder = (order: RentalOrder) => {
+    Modal.confirm({
+      title: "取消当前订单",
+      content:
+        order.status === "PENDING_PICKUP"
+          ? "订单已完成支付，取消后将进入退款处理流程。"
+          : "订单取消后车辆会释放为可租状态。",
+      okText: "确认取消",
+      cancelText: "再想想",
+      okButtonProps: { danger: true },
+      onOk: () => cancelOrderMutation.mutateAsync(order),
+    });
+  };
 
   const handleTripPrimaryAction = async (order: RentalOrder) => {
     if (order.status === "COMPLETED") {
@@ -258,9 +348,12 @@ export function CustomerApp() {
         <div className="nav-user">
           <span>{(user?.realName || user?.username || "U").slice(0, 1)}</span>
           <div>
-            <strong>{user?.realName || user?.username}</strong>
-            <small>黄金会员</small>
+            <strong>{profile?.realName || user?.username}</strong>
+            <small>{profile?.driverLicenseNo ? "驾照已认证" : "待认证"}</small>
           </div>
+          <Button type="link" size="small" onClick={() => setProfileOpen(true)}>
+            资料
+          </Button>
           <Button type="text" icon={<LogoutOutlined />} onClick={logout} />
         </div>
       </header>
@@ -305,7 +398,9 @@ export function CustomerApp() {
             <strong>2,480</strong>
             <small>可用积分</small>
           </div>
-          <Button block>会员中心</Button>
+          <Button block onClick={() => setProfileOpen(true)}>
+            会员中心
+          </Button>
         </div>
 
         <div className="booking-panel">
@@ -469,6 +564,21 @@ export function CustomerApp() {
                 >
                   {activeOrder.status === "COMPLETED" ? "查看合同" : "查看进度"}
                 </Button>
+                {(activeOrder.status === "PENDING_PAYMENT" || activeOrder.status === "PENDING_PICKUP") && (
+                  <Button
+                    block
+                    danger
+                    loading={cancelOrderMutation.isPending}
+                    onClick={() => confirmCancelOrder(activeOrder)}
+                  >
+                    取消订单
+                  </Button>
+                )}
+                {(activeOrder.status === "RENTING" || activeOrder.status === "PENDING_RETURN") && (
+                  <Button block onClick={() => setRenewOrder(activeOrder)}>
+                    申请续租
+                  </Button>
+                )}
                 {activeOrder.status === "COMPLETED" &&
                   (hasReviewedActiveOrder ? (
                     <Tag color="green">已评价</Tag>
@@ -530,6 +640,30 @@ export function CustomerApp() {
               <strong>{formatMoney(selectedCar.pricePerDay)}</strong>
               <small>押金 {formatMoney(selectedCar.deposit)}</small>
             </div>
+            <div className="car-review-section">
+              <div className="mini-section-title">
+                <strong>真实评价</strong>
+                <span>{selectedCarComments.length ? `${selectedCarComments.length} 条反馈` : "等待首条反馈"}</span>
+              </div>
+              {selectedCarCommentsQuery.isLoading ? (
+                <Spin />
+              ) : selectedCarComments.length ? (
+                <div className="car-review-list">
+                  {selectedCarComments.slice(0, 3).map((comment) => (
+                    <article key={comment.id}>
+                      <div>
+                        <strong>{comment.username}</strong>
+                        <Tag color="blue">{comment.score} 星</Tag>
+                      </div>
+                      <p>{comment.content || "用户未填写文字评价。"}</p>
+                      <span>{formatDateTime(comment.createTime)}</span>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这辆车暂无评价" />
+              )}
+            </div>
             <Button type="primary" block size="large" onClick={() => openBooking(selectedCar)}>
               预约这辆车
             </Button>
@@ -578,6 +712,107 @@ export function CustomerApp() {
             <p>合同文件：{contract.contractUrl}</p>
             <Tag color="cyan">{contract.signStatus}</Tag>
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={profileOpen}
+        onCancel={() => setProfileOpen(false)}
+        footer={null}
+        title="会员资料与驾照认证"
+        destroyOnHidden
+      >
+        <div className="profile-modal">
+          <section className="profile-summary">
+            <span>{(profile?.realName || profile?.username || "U").slice(0, 1)}</span>
+            <div>
+              <strong>{profile?.realName || profile?.username}</strong>
+              <small>{profile?.driverLicenseNo ? `驾照 ${profile.driverLicenseNo}` : "请补全驾照信息后再取车"}</small>
+            </div>
+            <Tag color={profile?.driverLicenseNo ? "green" : "orange"}>
+              {profile?.driverLicenseNo ? "已认证" : "待认证"}
+            </Tag>
+          </section>
+
+          <Form
+            layout="vertical"
+            initialValues={{
+              realName: profile?.realName,
+              phone: cleanProfileField(profile?.phone),
+              email: profile?.email,
+            }}
+            onFinish={(values) => updateProfileMutation.mutate(values)}
+          >
+            <div className="profile-form-grid">
+              <Form.Item name="realName" label="姓名">
+                <Input placeholder="真实姓名" />
+              </Form.Item>
+              <Form.Item name="phone" label="手机号">
+                <Input placeholder={profile?.phone ? `当前 ${profile.phone}` : "用于门店联系"} />
+              </Form.Item>
+              <Form.Item name="email" label="邮箱">
+                <Input placeholder="用于接收合同通知" />
+              </Form.Item>
+            </div>
+            <Button type="primary" htmlType="submit" loading={updateProfileMutation.isPending}>
+              保存会员资料
+            </Button>
+          </Form>
+
+          <Form
+            layout="vertical"
+            initialValues={{
+              realName: profile?.realName,
+            }}
+            onFinish={(values) => updateLicenseMutation.mutate(values)}
+          >
+            <div className="profile-form-grid">
+              <Form.Item name="realName" label="证件姓名" rules={[{ required: true, message: "请输入真实姓名" }]}>
+                <Input placeholder="与身份证一致" />
+              </Form.Item>
+              <Form.Item name="idCard" label="身份证号" rules={[{ required: true, message: "请输入身份证号" }]}>
+                <Input placeholder="用于租赁合同" />
+              </Form.Item>
+              <Form.Item
+                name="driverLicenseNo"
+                label="驾驶证号"
+                rules={[{ required: true, message: "请输入驾驶证号" }]}
+              >
+                <Input placeholder="门店取车时核验" />
+              </Form.Item>
+            </div>
+            <Button htmlType="submit" loading={updateLicenseMutation.isPending}>
+              保存驾照认证
+            </Button>
+          </Form>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!renewOrder}
+        onCancel={() => setRenewOrder(null)}
+        footer={null}
+        title={`续租 ${renewOrder?.car.carName || ""}`}
+        destroyOnHidden
+      >
+        {renewOrder && (
+          <Form layout="vertical" initialValues={{ extraDays: 1 }} onFinish={(values) => renewOrderMutation.mutate(values)}>
+            <div className="renew-summary">
+              <span>当前还车时间</span>
+              <strong>{formatDateTime(renewOrder.endTime)}</strong>
+              <small>续租后金额会按当前日租价重新计算。</small>
+            </div>
+            <Form.Item
+              name="extraDays"
+              label="续租天数"
+              rules={[{ required: true, message: "请输入续租天数" }]}
+            >
+              <InputNumber min={1} max={30} precision={0} style={{ width: "100%" }} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" loading={renewOrderMutation.isPending} block>
+              确认续租
+            </Button>
+          </Form>
         )}
       </Modal>
 

@@ -174,6 +174,18 @@ export interface UploadResponse {
   contentType: string;
 }
 
+export interface UpdateProfileRequest {
+  phone?: string;
+  email?: string;
+  realName?: string;
+}
+
+export interface LicenseRequest {
+  realName: string;
+  idCard: string;
+  driverLicenseNo: string;
+}
+
 export interface CarSearchParams {
   keyword?: string;
   brand?: string;

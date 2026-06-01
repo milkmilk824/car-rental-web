@@ -65,9 +65,15 @@ public class UserService {
 
     public UserDtos.UserResponse updateProfile(Long userId, UserDtos.UpdateProfileRequest request) {
         User user = findById(userId);
-        user.setPhone(request.phone());
-        user.setEmail(request.email());
-        user.setRealName(request.realName());
+        if (request.phone() != null) {
+            user.setPhone(request.phone());
+        }
+        if (request.email() != null) {
+            user.setEmail(request.email());
+        }
+        if (request.realName() != null) {
+            user.setRealName(request.realName());
+        }
         return DtoMapper.toUserResponse(user);
     }
 

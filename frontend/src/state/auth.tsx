@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { clearSession, getStoredUser, saveSession } from "../api/client";
+import { clearSession, getStoredToken, getStoredUser, saveSession } from "../api/client";
 import type { User } from "../types";
 import { AuthContext, type AuthContextValue } from "./auth-context";
 
@@ -12,6 +12,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginWithResponse(response) {
         saveSession(response.token, response.user);
         setUser(response.user);
+      },
+      updateUser(nextUser) {
+        const token = getStoredToken();
+        if (token) saveSession(token, nextUser);
+        setUser(nextUser);
       },
       logout() {
         clearSession();

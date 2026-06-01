@@ -4,6 +4,7 @@ import type { LoginResponse, User } from "../types";
 export interface AuthContextValue {
   user: User | null;
   loginWithResponse: (response: LoginResponse) => void;
+  updateUser: (user: User) => void;
   logout: () => void;
 }
 

@@ -9,10 +9,12 @@ import {
   MenuOutlined,
   PlusOutlined,
   SearchOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Empty, Form, Input, InputNumber, Modal, Select, Space, Table, Tag } from "antd";
+import { App, Button, Empty, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Upload } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import type { UploadProps } from "antd";
 import * as echarts from "echarts";
 import gsap from "gsap";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -150,6 +152,55 @@ function formatDateTime(value?: string) {
 
 function imageOf(car?: Car) {
   return car?.imageUrls?.[0] || fallbackImage;
+}
+
+function CarImageUploader({
+  imageUrls,
+  onChange,
+  message,
+}: {
+  imageUrls: string[];
+  onChange: (urls: string[]) => void;
+  message: ReturnType<typeof App.useApp>["message"];
+}) {
+  const uploadProps: UploadProps = {
+    accept: "image/*",
+    showUploadList: false,
+    customRequest: async (options) => {
+      try {
+        const result = await api.uploadCarImage(options.file as File);
+        onChange([...imageUrls, result.url]);
+        options.onSuccess?.(result);
+        message.success("车辆图片已上传");
+      } catch (error) {
+        const uploadError = error instanceof Error ? error : new Error("图片上传失败");
+        options.onError?.(uploadError);
+        message.error(uploadError.message);
+      }
+    },
+  };
+
+  return (
+    <div className="car-image-uploader">
+      <Upload {...uploadProps}>
+        <Button icon={<UploadOutlined />}>上传车辆图片</Button>
+      </Upload>
+      {imageUrls.length ? (
+        <div className="uploaded-image-list">
+          {imageUrls.map((url) => (
+            <div key={url}>
+              <img src={url} alt="车辆图片" />
+              <Button type="link" danger size="small" onClick={() => onChange(imageUrls.filter((item) => item !== url))}>
+                移除
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span>支持 jpg、png、webp、gif、svg，保存车辆后会用于前台展示。</span>
+      )}
+    </div>
+  );
 }
 
 function userName(user: User) {
@@ -342,6 +393,7 @@ function EditCarForm({ record, onDone, onCancel }: { record: AdminLiveRecord; on
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const car = record.raw as Car;
+  const [imageUrls, setImageUrls] = useState<string[]>(car.imageUrls || []);
   const editMutation = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       api.updateCar(car.id, {
@@ -356,7 +408,7 @@ function EditCarForm({ record, onDone, onCancel }: { record: AdminLiveRecord; on
         status: (values.status as CarStatus) || "AVAILABLE",
         mileage: Number(values.mileage || 0),
         description: values.description ? String(values.description) : undefined,
-        imageUrls: car.imageUrls,
+        imageUrls,
       }),
     onSuccess: () => { message.success("车辆已更新"); onDone(); },
     onError: (err: Error) => message.error(err.message),
@@ -383,6 +435,9 @@ function EditCarForm({ record, onDone, onCancel }: { record: AdminLiveRecord; on
         <Select options={Object.entries(carStatusLabel).map(([k, v]) => ({ label: v, value: k }))} />
       </Form.Item>
       <Form.Item name="description" label="描述"><Input.TextArea rows={3} /></Form.Item>
+      <Form.Item label="车辆图片">
+        <CarImageUploader imageUrls={imageUrls} onChange={setImageUrls} message={message} />
+      </Form.Item>
       <Space style={{ justifyContent: "flex-end", width: "100%" }}>
         <Button onClick={onCancel}>取消</Button>
         <Button type="primary" htmlType="submit" loading={loading}>保存</Button>
@@ -535,6 +590,7 @@ function CreateFormSelector({ section, stores, onDone, onCancel }: { section: Ad
 function CreateCarForm({ stores, message, onDone, onCancel }: { stores: Store[]; message: ReturnType<typeof App.useApp>["message"]; onDone: () => void; onCancel: () => void }) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const catsQuery = useQuery({ queryKey: ["categories"], queryFn: api.categories });
   const createMutation = useMutation({
@@ -561,13 +617,15 @@ function CreateCarForm({ stores, message, onDone, onCancel }: { stores: Store[];
         plateNumber: String(values.plateNumber || ""), storeId,
         pricePerDay: Number(values.pricePerDay || 0), deposit: Number(values.deposit || 0),
         status: (values.status as CarStatus) || "AVAILABLE", mileage: Number(values.mileage || 0),
-        description: values.description ? String(values.description) : undefined, imageUrls: undefined,
+        description: values.description ? String(values.description) : undefined,
+        imageUrls: imageUrls.length ? imageUrls : undefined,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       message.success("车辆已创建");
       form.resetFields();
+      setImageUrls([]);
       onDone();
     },
     onError: (err: Error) => message.error(err.message),
@@ -608,6 +666,9 @@ function CreateCarForm({ stores, message, onDone, onCancel }: { stores: Store[];
         <Select options={Object.entries(carStatusLabel).map(([k, v]) => ({ label: v, value: k }))} />
       </Form.Item>
       <Form.Item name="description" label="描述"><Input.TextArea rows={2} /></Form.Item>
+      <Form.Item label="车辆图片">
+        <CarImageUploader imageUrls={imageUrls} onChange={setImageUrls} message={message} />
+      </Form.Item>
       <Space style={{ justifyContent: "flex-end", width: "100%" }}>
         <Button onClick={onCancel}>取消</Button>
         <Button type="primary" htmlType="submit" loading={loading}>创建</Button>
