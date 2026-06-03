@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AdminPortal } from "./pages/AdminPortal";
 import { CustomerApp } from "./pages/CustomerApp";
+import { HelpCenterPage } from "./pages/HelpCenterPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { StaffPortal } from "./pages/StaffPortal";
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/help" element={<HelpCenterPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/app"

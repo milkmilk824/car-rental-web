@@ -46,13 +46,17 @@ const orderStatusText: Record<RentalOrder["status"], string> = {
 
 const orderSteps = ["待支付", "待取车", "租赁中", "已完成"];
 
-const customerNavItems = [
-  { label: "首页", target: "app-top" },
-  { label: "选车", target: "recommend" },
-  { label: "门店", target: "store-network" },
-  { label: "我的行程", target: "my-trips" },
-  { label: "企业服务", target: "enterprise-service" },
-  { label: "帮助中心", target: "help-center" },
+type CustomerNavItem =
+  | { kind: "section"; label: string; target: string }
+  | { kind: "route"; label: string; href: string };
+
+const customerNavItems: CustomerNavItem[] = [
+  { kind: "section", label: "首页", target: "app-top" },
+  { kind: "section", label: "选车", target: "recommend" },
+  { kind: "section", label: "门店", target: "store-network" },
+  { kind: "section", label: "我的行程", target: "my-trips" },
+  { kind: "section", label: "企业服务", target: "enterprise-service" },
+  { kind: "route", label: "帮助中心", href: "/help" },
 ];
 
 const fallbackRecommendTabs = ["精选推荐", "经济型", "SUV", "商务型", "豪华型", "新能源"];
@@ -379,19 +383,25 @@ export function CustomerApp() {
           上海
         </button>
         <nav>
-          {customerNavItems.map((item) => (
-            <a
-              className={activeSection === item.target ? "active" : ""}
-              href={`#${item.target}`}
-              key={item.target}
-              onClick={(event) => {
-                event.preventDefault();
-                scrollToSection(item.target);
-              }}
-            >
-              {item.label}
-            </a>
-          ))}
+          {customerNavItems.map((item) =>
+            item.kind === "route" ? (
+              <Link to={item.href} key={item.label}>
+                {item.label}
+              </Link>
+            ) : (
+              <a
+                className={activeSection === item.target ? "active" : ""}
+                href={`#${item.target}`}
+                key={item.target}
+                onClick={(event) => {
+                  event.preventDefault();
+                  scrollToSection(item.target);
+                }}
+              >
+                {item.label}
+              </a>
+            ),
+          )}
         </nav>
         <Input
           prefix={<SearchOutlined />}

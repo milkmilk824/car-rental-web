@@ -150,7 +150,7 @@ export function LandingPage() {
           <a href="#enterprise">企业方案</a>
           <a href="#stores">门店网络</a>
           <a href="#workflow">租赁流程</a>
-          <a href="#footer">帮助中心</a>
+          <Link to="/help">帮助中心</Link>
         </nav>
         <Link to="/login" className="header-login">
           登录
