@@ -2,6 +2,7 @@ package com.example.carrental.controller;
 
 import com.example.carrental.common.ApiResponse;
 import com.example.carrental.common.Enums.UserRole;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.dto.CommentDtos;
 import com.example.carrental.security.AuthContext;
 import com.example.carrental.security.PublicEndpoint;
@@ -34,8 +35,11 @@ public class CommentController {
 
     @RequireRole(UserRole.ADMIN)
     @GetMapping("/api/admin/comments")
-    public ApiResponse<List<CommentDtos.CommentResponse>> listAll() {
-        return ApiResponse.ok(commentService.listAll());
+    public ApiResponse<PageResult<CommentDtos.CommentResponse>> listAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(commentService.listAll(page, size));
     }
 
     @RequireRole(UserRole.ADMIN)

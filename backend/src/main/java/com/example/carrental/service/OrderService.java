@@ -5,6 +5,7 @@ import com.example.carrental.common.Enums.CarStatus;
 import com.example.carrental.common.Enums.OrderStatus;
 import com.example.carrental.common.Enums.StoreStatus;
 import com.example.carrental.common.Enums.UserRole;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.domain.Car;
 import com.example.carrental.domain.RentalOrder;
 import com.example.carrental.domain.Store;
@@ -12,6 +13,8 @@ import com.example.carrental.domain.User;
 import com.example.carrental.dto.OrderDtos;
 import com.example.carrental.repository.RentalOrderRepository;
 import com.example.carrental.security.CurrentUser;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,19 +33,22 @@ public class OrderService {
     private final CarService carService;
     private final StoreService storeService;
     private final StoreStaffService storeStaffService;
+    private final HotCacheService cacheService;
 
     public OrderService(
             RentalOrderRepository orderRepository,
             UserService userService,
             CarService carService,
             StoreService storeService,
-            StoreStaffService storeStaffService
+            StoreStaffService storeStaffService,
+            HotCacheService cacheService
     ) {
         this.orderRepository = orderRepository;
         this.userService = userService;
         this.carService = carService;
         this.storeService = storeService;
         this.storeStaffService = storeStaffService;
+        this.cacheService = cacheService;
     }
 
     public OrderDtos.OrderResponse create(Long userId, OrderDtos.OrderCreateRequest request) {
@@ -78,6 +84,7 @@ public class OrderService {
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         car.setStatus(CarStatus.RESERVED);
         orderRepository.save(order);
+        evictOperationalCaches();
         return DtoMapper.toOrderResponse(order);
     }
 
@@ -89,16 +96,15 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderDtos.OrderResponse> allOrders() {
-        return orderRepository.findAll().stream().map(DtoMapper::toOrderResponse).toList();
+    public PageResult<OrderDtos.OrderResponse> allOrders(int page, int size) {
+        return PageResult.from(orderRepository.findAll(pageRequest(page, size)).map(DtoMapper::toOrderResponse));
     }
 
     @Transactional(readOnly = true)
-    public List<OrderDtos.OrderResponse> storeOrders(Long storeId, CurrentUser currentUser) {
+    public PageResult<OrderDtos.OrderResponse> storeOrders(Long storeId, CurrentUser currentUser, int page, int size) {
         storeStaffService.ensureStoreAccess(storeId, currentUser);
-        return orderRepository.findByPickupStoreIdOrReturnStoreIdOrderByCreateTimeDesc(storeId, storeId).stream()
-                .map(DtoMapper::toOrderResponse)
-                .toList();
+        return PageResult.from(orderRepository.findByPickupStoreIdOrReturnStoreId(storeId, storeId, pageRequest(page, size))
+                .map(DtoMapper::toOrderResponse));
     }
 
     @Transactional(readOnly = true)
@@ -116,6 +122,7 @@ public class OrderService {
         }
         order.setStatus(order.getStatus() == OrderStatus.PENDING_PICKUP ? OrderStatus.REFUNDING : OrderStatus.CANCELLED);
         order.getCar().setStatus(CarStatus.AVAILABLE);
+        evictOperationalCaches();
         return DtoMapper.toOrderResponse(order);
     }
 
@@ -130,6 +137,7 @@ public class OrderService {
         order.setEndTime(order.getEndTime().plusDays(extraDays));
         order.setRentalDays(order.getRentalDays() + extraDays);
         order.setTotalAmount(order.getCar().getPricePerDay().multiply(BigDecimal.valueOf(order.getRentalDays())));
+        evictOperationalCaches();
         return DtoMapper.toOrderResponse(order);
     }
 
@@ -141,6 +149,7 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.RENTING);
         order.getCar().setStatus(CarStatus.RENTING);
+        evictOperationalCaches();
         return DtoMapper.toOrderResponse(order);
     }
 
@@ -152,6 +161,7 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.COMPLETED);
         order.getCar().setStatus(CarStatus.AVAILABLE);
+        evictOperationalCaches();
         return DtoMapper.toOrderResponse(order);
     }
 
@@ -161,6 +171,7 @@ public class OrderService {
             return order;
         }
         order.setStatus(OrderStatus.PENDING_PICKUP);
+        evictOperationalCaches();
         return order;
     }
 
@@ -180,5 +191,18 @@ public class OrderService {
         if (!order.getUser().getId().equals(currentUser.id())) {
             throw BusinessException.forbidden("不能访问他人订单");
         }
+    }
+
+    private PageRequest pageRequest(int page, int size) {
+        return PageRequest.of(
+                Math.max(page, 0),
+                Math.max(1, Math.min(size, 100)),
+                Sort.by(Sort.Direction.DESC, "createTime")
+        );
+    }
+
+    private void evictOperationalCaches() {
+        cacheService.evictPrefix("stats:");
+        carService.evictCarCaches();
     }
 }

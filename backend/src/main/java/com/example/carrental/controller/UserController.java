@@ -30,6 +30,21 @@ public class UserController {
         return ApiResponse.ok(userService.login(request));
     }
 
+    @PublicEndpoint
+    @PostMapping("/refresh")
+    public ApiResponse<UserDtos.LoginResponse> refresh(@Valid @RequestBody UserDtos.RefreshTokenRequest request) {
+        return ApiResponse.ok(userService.refresh(request));
+    }
+
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) UserDtos.LogoutRequest request
+    ) {
+        userService.logout(authorization, request);
+        return ApiResponse.ok();
+    }
+
     @GetMapping("/profile")
     public ApiResponse<UserDtos.UserResponse> profile() {
         return ApiResponse.ok(userService.profile(AuthContext.required().id()));

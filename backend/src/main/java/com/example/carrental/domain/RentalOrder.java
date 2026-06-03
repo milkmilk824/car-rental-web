@@ -9,7 +9,12 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "rental_order", indexes = {
         @Index(name = "idx_order_no", columnList = "orderNo", unique = true),
-        @Index(name = "idx_order_status", columnList = "status")
+        @Index(name = "idx_order_status", columnList = "status"),
+        @Index(name = "idx_order_user_create_time", columnList = "user_id,create_time"),
+        @Index(name = "idx_order_car_status_time", columnList = "car_id,status,start_time,end_time"),
+        @Index(name = "idx_order_pickup_store_create_time", columnList = "pickup_store_id,create_time"),
+        @Index(name = "idx_order_return_store_create_time", columnList = "return_store_id,create_time"),
+        @Index(name = "idx_order_status_create_time", columnList = "status,create_time")
 })
 public class RentalOrder extends BaseEntity {
 

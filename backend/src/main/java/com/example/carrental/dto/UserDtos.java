@@ -21,7 +21,13 @@ public final class UserDtos {
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {
     }
 
-    public record LoginResponse(String token, UserResponse user) {
+    public record LoginResponse(String token, String refreshToken, UserResponse user) {
+    }
+
+    public record RefreshTokenRequest(@NotBlank String refreshToken) {
+    }
+
+    public record LogoutRequest(String refreshToken) {
     }
 
     public record UpdateProfileRequest(String phone, String email, String realName) {

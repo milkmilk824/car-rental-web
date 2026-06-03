@@ -7,6 +7,7 @@ import com.example.carrental.common.PageResult;
 import com.example.carrental.domain.Car;
 import com.example.carrental.domain.CarCategory;
 import com.example.carrental.dto.CarDtos;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.example.carrental.repository.CarCategoryRepository;
 import com.example.carrental.repository.CarRepository;
 import com.example.carrental.repository.RentalOrderRepository;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -32,6 +34,7 @@ public class CarService {
     private final CarCategoryRepository categoryRepository;
     private final StoreService storeService;
     private final RentalOrderRepository orderRepository;
+    private final HotCacheService cacheService;
     private static final Set<OrderStatus> ACTIVE_ORDER_STATUSES = EnumSet.of(
             OrderStatus.PENDING_PAYMENT,
             OrderStatus.PENDING_PICKUP,
@@ -45,12 +48,14 @@ public class CarService {
             CarRepository carRepository,
             CarCategoryRepository categoryRepository,
             StoreService storeService,
-            RentalOrderRepository orderRepository
+            RentalOrderRepository orderRepository,
+            HotCacheService cacheService
     ) {
         this.carRepository = carRepository;
         this.categoryRepository = categoryRepository;
         this.storeService = storeService;
         this.orderRepository = orderRepository;
+        this.cacheService = cacheService;
     }
 
     @Transactional(readOnly = true)
@@ -99,8 +104,30 @@ public class CarService {
             }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
-        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "createTime"));
-        return PageResult.from(carRepository.findAll(spec, pageable).map(DtoMapper::toCarResponse));
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        String cacheKey = "car:search:" + List.of(
+                keyword == null ? "" : keyword,
+                brand == null ? "" : brand,
+                categoryId == null ? "" : categoryId,
+                storeId == null ? "" : storeId,
+                city == null ? "" : city,
+                status == null ? "" : status,
+                minPrice == null ? "" : minPrice,
+                maxPrice == null ? "" : maxPrice,
+                safePage,
+                safeSize
+        );
+        return cacheService.getOrLoad(
+                cacheKey,
+                Duration.ofSeconds(60),
+                new TypeReference<>() {
+                },
+                () -> {
+                    PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createTime"));
+                    return PageResult.from(carRepository.findAll(spec, pageable).map(DtoMapper::toCarResponse));
+                }
+        );
     }
 
     @Transactional(readOnly = true)
@@ -129,7 +156,13 @@ public class CarService {
 
     @Transactional(readOnly = true)
     public List<CarDtos.CategoryResponse> categories() {
-        return categoryRepository.findAll().stream().map(DtoMapper::toCategoryResponse).toList();
+        return cacheService.getOrLoad(
+                "car:categories",
+                Duration.ofMinutes(30),
+                new TypeReference<>() {
+                },
+                () -> categoryRepository.findAll().stream().map(DtoMapper::toCategoryResponse).toList()
+        );
     }
 
     public CarDtos.CategoryResponse createCategory(CarDtos.CategoryRequest request) {
@@ -140,6 +173,7 @@ public class CarService {
         category.setCategoryName(request.categoryName());
         category.setDescription(request.description());
         categoryRepository.save(category);
+        evictCarCaches();
         return DtoMapper.toCategoryResponse(category);
     }
 
@@ -155,6 +189,7 @@ public class CarService {
         }
         category.setCategoryName(request.categoryName());
         category.setDescription(request.description());
+        evictCarCaches();
         return DtoMapper.toCategoryResponse(category);
     }
 
@@ -162,30 +197,35 @@ public class CarService {
         CarCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("车辆分类不存在"));
         categoryRepository.delete(category);
+        evictCarCaches();
     }
 
     public CarDtos.CarResponse create(CarDtos.CarRequest request) {
         Car car = new Car();
         apply(car, request);
         carRepository.save(car);
+        evictCarCaches();
         return DtoMapper.toCarResponse(car);
     }
 
     public CarDtos.CarResponse update(Long id, CarDtos.CarRequest request) {
         Car car = findById(id);
         apply(car, request);
+        evictCarCaches();
         return DtoMapper.toCarResponse(car);
     }
 
     public CarDtos.CarResponse updateStatus(Long id, CarStatus status) {
         Car car = findById(id);
         car.setStatus(status);
+        evictCarCaches();
         return DtoMapper.toCarResponse(car);
     }
 
     public void delete(Long id) {
         Car car = findById(id);
         carRepository.delete(car);
+        evictCarCaches();
     }
 
     public Car findById(Long id) {
@@ -220,5 +260,10 @@ public class CarService {
         car.setMileage(request.mileage() == null ? 0 : request.mileage());
         car.setDescription(request.description());
         car.replaceImages(request.imageUrls());
+    }
+
+    public void evictCarCaches() {
+        cacheService.evictPrefix("car:");
+        cacheService.evictPrefix("stats:");
     }
 }

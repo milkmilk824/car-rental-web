@@ -28,4 +28,8 @@ public class BusinessException extends RuntimeException {
     public static BusinessException forbidden(String message) {
         return new BusinessException(403, message);
     }
+
+    public static BusinessException tooManyRequests(String message) {
+        return new BusinessException(429, message);
+    }
 }

@@ -24,3 +24,8 @@ app:
     callback-secret: drivepilot-test-secret
   data-init:
     enabled: true
+  session:
+    store: local
+    redis-prefix: "drivepilot:test:session:"
+    token-ttl: PT2H
+    refresh-token-ttl: P7D

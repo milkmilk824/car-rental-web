@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "contract", indexes = {
-        @Index(name = "idx_contract_no", columnList = "contractNo", unique = true)
+        @Index(name = "idx_contract_no", columnList = "contractNo", unique = true),
+        @Index(name = "idx_contract_order", columnList = "order_id"),
+        @Index(name = "idx_contract_user_create_time", columnList = "user_id,create_time")
 })
 public class Contract extends BaseEntity {
 

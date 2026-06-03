@@ -3,10 +3,12 @@ package com.example.carrental.service;
 import com.example.carrental.common.BusinessException;
 import com.example.carrental.common.Enums.CarStatus;
 import com.example.carrental.common.Enums.MaintenanceType;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.domain.Car;
 import com.example.carrental.domain.MaintenanceRecord;
 import com.example.carrental.dto.MaintenanceDtos;
 import com.example.carrental.repository.MaintenanceRecordRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,21 +38,20 @@ public class MaintenanceService {
         record.setRecordTime(request.recordTime() == null ? LocalDateTime.now() : request.recordTime());
         car.setStatus(request.type() == MaintenanceType.REPAIR ? CarStatus.REPAIRING : CarStatus.MAINTAINING);
         recordRepository.save(record);
+        carService.evictCarCaches();
         return DtoMapper.toMaintenanceResponse(record);
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceDtos.MaintenanceResponse> listAll() {
-        return recordRepository.findAllByOrderByRecordTimeDesc().stream()
-                .map(DtoMapper::toMaintenanceResponse)
-                .toList();
+    public PageResult<MaintenanceDtos.MaintenanceResponse> listAll(int page, int size) {
+        PageRequest pageRequest = pageRequest(page, size);
+        return PageResult.from(recordRepository.findAllByOrderByRecordTimeDesc(pageRequest).map(DtoMapper::toMaintenanceResponse));
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceDtos.MaintenanceResponse> byCar(Long carId) {
-        return recordRepository.findByCarIdOrderByRecordTimeDesc(carId).stream()
-                .map(DtoMapper::toMaintenanceResponse)
-                .toList();
+    public PageResult<MaintenanceDtos.MaintenanceResponse> byCar(Long carId, int page, int size) {
+        return PageResult.from(recordRepository.findByCarIdOrderByRecordTimeDesc(carId, pageRequest(page, size))
+                .map(DtoMapper::toMaintenanceResponse));
     }
 
     public MaintenanceDtos.MaintenanceResponse update(Long id, MaintenanceDtos.MaintenanceRequest request) {
@@ -67,5 +68,9 @@ public class MaintenanceService {
         MaintenanceRecord record = recordRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("维保记录不存在"));
         recordRepository.delete(record);
+    }
+
+    private PageRequest pageRequest(int page, int size) {
+        return PageRequest.of(Math.max(page, 0), Math.max(1, Math.min(size, 100)));
     }
 }

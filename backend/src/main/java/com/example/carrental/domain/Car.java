@@ -2,6 +2,7 @@ package com.example.carrental.domain;
 
 import com.example.carrental.common.Enums.CarStatus;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -10,7 +11,11 @@ import java.util.List;
 @Entity
 @Table(name = "car", indexes = {
         @Index(name = "idx_car_brand", columnList = "brand"),
-        @Index(name = "idx_car_status", columnList = "status")
+        @Index(name = "idx_car_status", columnList = "status"),
+        @Index(name = "idx_car_brand_status", columnList = "brand,status"),
+        @Index(name = "idx_car_store_status", columnList = "store_id,status"),
+        @Index(name = "idx_car_category_status", columnList = "category_id,status"),
+        @Index(name = "idx_car_status_create_time", columnList = "status,create_time")
 })
 public class Car extends BaseEntity {
 
@@ -58,6 +63,7 @@ public class Car extends BaseEntity {
     private Long version;
 
     @OneToMany(mappedBy = "car", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<CarImage> images = new ArrayList<>();
 
     public Long getId() {

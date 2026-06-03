@@ -2,6 +2,7 @@ package com.example.carrental.controller;
 
 import com.example.carrental.common.ApiResponse;
 import com.example.carrental.common.Enums.UserRole;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.dto.ContractDtos;
 import com.example.carrental.security.AuthContext;
 import com.example.carrental.security.RequireRole;
@@ -9,8 +10,6 @@ import com.example.carrental.service.ContractService;
 import com.example.carrental.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 public class ContractController {
@@ -31,8 +30,11 @@ public class ContractController {
 
     @RequireRole(UserRole.ADMIN)
     @GetMapping("/api/admin/contracts")
-    public ApiResponse<List<ContractDtos.ContractResponse>> list() {
-        return ApiResponse.ok(contractService.listAll());
+    public ApiResponse<PageResult<ContractDtos.ContractResponse>> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(contractService.listAll(page, size));
     }
 
     @RequireRole(UserRole.ADMIN)

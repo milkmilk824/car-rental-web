@@ -2,6 +2,7 @@ package com.example.carrental.controller;
 
 import com.example.carrental.common.ApiResponse;
 import com.example.carrental.common.Enums.UserRole;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.dto.OrderDtos;
 import com.example.carrental.security.AuthContext;
 import com.example.carrental.security.RequireRole;
@@ -47,14 +48,21 @@ public class OrderController {
 
     @RequireRole(UserRole.ADMIN)
     @GetMapping("/api/admin/orders")
-    public ApiResponse<List<OrderDtos.OrderResponse>> allOrders() {
-        return ApiResponse.ok(orderService.allOrders());
+    public ApiResponse<PageResult<OrderDtos.OrderResponse>> allOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(orderService.allOrders(page, size));
     }
 
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})
     @GetMapping("/api/store/orders")
-    public ApiResponse<List<OrderDtos.OrderResponse>> storeOrders(@RequestParam Long storeId) {
-        return ApiResponse.ok(orderService.storeOrders(storeId, AuthContext.required()));
+    public ApiResponse<PageResult<OrderDtos.OrderResponse>> storeOrders(
+            @RequestParam Long storeId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(orderService.storeOrders(storeId, AuthContext.required(), page, size));
     }
 
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})

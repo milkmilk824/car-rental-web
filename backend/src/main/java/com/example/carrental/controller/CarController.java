@@ -120,14 +120,21 @@ public class CarController {
 
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})
     @GetMapping("/api/admin/cars/maintenance")
-    public ApiResponse<List<MaintenanceDtos.MaintenanceResponse>> maintenanceList() {
-        return ApiResponse.ok(maintenanceService.listAll());
+    public ApiResponse<PageResult<MaintenanceDtos.MaintenanceResponse>> maintenanceList(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(maintenanceService.listAll(page, size));
     }
 
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})
     @GetMapping("/api/admin/cars/{id}/maintenance")
-    public ApiResponse<List<MaintenanceDtos.MaintenanceResponse>> maintenance(@PathVariable Long id) {
-        return ApiResponse.ok(maintenanceService.byCar(id));
+    public ApiResponse<PageResult<MaintenanceDtos.MaintenanceResponse>> maintenance(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(maintenanceService.byCar(id, page, size));
     }
 
     @RequireRole({UserRole.ADMIN, UserRole.STORE_STAFF})

@@ -32,19 +32,28 @@ import type {
 } from "../types";
 
 const TOKEN_KEY = "drivepilot_token";
+const REFRESH_TOKEN_KEY = "drivepilot_refresh_token";
 const USER_KEY = "drivepilot_user";
 
 export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-export function saveSession(token: string, user: User) {
+export function getStoredRefreshToken() {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function saveSession(token: string, user: User, refreshToken?: string) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  }
 }
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
 
@@ -91,6 +100,14 @@ function queryString(params: object) {
   return search.toString();
 }
 
+function pageItems<T>(value: PageResult<T> | T[]) {
+  return Array.isArray(value) ? value : value.items;
+}
+
+async function requestList<T>(path: string, options: RequestOptions = {}) {
+  return pageItems(await request<PageResult<T> | T[]>(path, options));
+}
+
 export const api = {
   login: (username: string, password: string) =>
     request<LoginResponse>("/api/user/login", {
@@ -103,6 +120,17 @@ export const api = {
       method: "POST",
       body: jsonBody(values),
       auth: false,
+    }),
+  refreshSession: (refreshToken = getStoredRefreshToken() || "") =>
+    request<LoginResponse>("/api/user/refresh", {
+      method: "POST",
+      body: jsonBody({ refreshToken }),
+      auth: false,
+    }),
+  logoutSession: (refreshToken = getStoredRefreshToken()) =>
+    request<void>("/api/user/logout", {
+      method: "POST",
+      body: refreshToken ? jsonBody({ refreshToken }) : undefined,
     }),
   profile: () => request<User>("/api/user/profile"),
   updateProfile: (payload: UpdateProfileRequest) =>
@@ -156,7 +184,7 @@ export const api = {
       method: "POST",
       body: jsonBody({ orderId, score, content }),
     }),
-  storeOrders: (storeId: number) => request<RentalOrder[]>(`/api/store/orders?storeId=${storeId}`),
+  storeOrders: (storeId: number) => requestList<RentalOrder>(`/api/store/orders?storeId=${storeId}`),
   confirmPickup: (orderId: number) =>
     request<RentalOrder>(`/api/store/orders/${orderId}/pickup`, { method: "PUT" }),
   confirmReturn: (orderId: number) =>
@@ -166,7 +194,7 @@ export const api = {
       method: "POST",
       body: jsonBody(payload),
     }),
-  maintenanceByCar: (carId: number) => request<MaintenanceRecord[]>(`/api/admin/cars/${carId}/maintenance`),
+  maintenanceByCar: (carId: number) => requestList<MaintenanceRecord>(`/api/admin/cars/${carId}/maintenance`),
   updateMaintenance: (id: number, payload: MaintenanceRequest) =>
     request<MaintenanceRecord>(`/api/admin/cars/maintenance/${id}`, {
       method: "PUT",
@@ -207,8 +235,8 @@ export const api = {
     request<void>(`/api/admin/cars/${id}`, {
       method: "DELETE",
     }),
-  adminOrders: () => request<RentalOrder[]>("/api/admin/orders"),
-  adminUsers: () => request<User[]>("/api/admin/users"),
+  adminOrders: () => requestList<RentalOrder>("/api/admin/orders"),
+  adminUsers: () => requestList<User>("/api/admin/users"),
   createUser: (payload: AdminCreateUserRequest) =>
     request<User>("/api/admin/users", {
       method: "POST",
@@ -247,18 +275,18 @@ export const api = {
     request<void>(`/api/admin/stores/${id}`, {
       method: "DELETE",
     }),
-  adminPayments: () => request<PaymentOrder[]>("/api/admin/payments"),
+  adminPayments: () => requestList<PaymentOrder>("/api/admin/payments"),
   refundPayment: (payload: RefundRequest) =>
     request<PaymentOrder>("/api/payments/refund", {
       method: "POST",
       body: jsonBody(payload),
     }),
-  adminComments: () => request<Comment[]>("/api/admin/comments"),
+  adminComments: () => requestList<Comment>("/api/admin/comments"),
   deleteComment: (id: number) =>
     request<void>(`/api/admin/comments/${id}`, {
       method: "DELETE",
     }),
-  adminContracts: () => request<Contract[]>("/api/admin/contracts"),
+  adminContracts: () => requestList<Contract>("/api/admin/contracts"),
   generateContract: (orderId: number) =>
     request<Contract>("/api/contracts/generate", {
       method: "POST",
@@ -269,7 +297,7 @@ export const api = {
     request<Contract>(`/api/contracts/${id}/sign`, {
       method: "PUT",
     }),
-  adminMaintenance: () => request<MaintenanceRecord[]>("/api/admin/cars/maintenance"),
+  adminMaintenance: () => requestList<MaintenanceRecord>("/api/admin/cars/maintenance"),
   updateCarStatus: (carId: number, status: CarStatus) =>
     request<Car>(`/api/admin/cars/${carId}/status`, {
       method: "PUT",

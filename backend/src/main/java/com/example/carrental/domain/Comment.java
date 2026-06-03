@@ -4,7 +4,11 @@ import com.example.carrental.common.Enums.CommentStatus;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "comment_record")
+@Table(name = "comment_record", indexes = {
+        @Index(name = "idx_comment_car_status_create_time", columnList = "car_id,status,create_time"),
+        @Index(name = "idx_comment_order_user_status", columnList = "order_id,user_id,status"),
+        @Index(name = "idx_comment_status_create_time", columnList = "status,create_time")
+})
 public class Comment extends BaseEntity {
 
     @Id

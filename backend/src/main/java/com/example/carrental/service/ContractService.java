@@ -3,14 +3,15 @@ package com.example.carrental.service;
 import com.example.carrental.common.BusinessException;
 import com.example.carrental.common.Enums.ContractStatus;
 import com.example.carrental.common.Enums.OrderStatus;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.domain.Contract;
 import com.example.carrental.domain.RentalOrder;
 import com.example.carrental.dto.ContractDtos;
 import com.example.carrental.repository.ContractRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -30,10 +31,9 @@ public class ContractService {
     }
 
     @Transactional(readOnly = true)
-    public List<ContractDtos.ContractResponse> listAll() {
-        return contractRepository.findAllByOrderByCreateTimeDesc().stream()
-                .map(DtoMapper::toContractResponse)
-                .toList();
+    public PageResult<ContractDtos.ContractResponse> listAll(int page, int size) {
+        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.max(1, Math.min(size, 100)));
+        return PageResult.from(contractRepository.findAllByOrderByCreateTimeDesc(pageRequest).map(DtoMapper::toContractResponse));
     }
 
     public Contract generateInternal(Long orderId) {

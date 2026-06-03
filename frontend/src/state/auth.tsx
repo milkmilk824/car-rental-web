@@ -10,7 +10,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       loginWithResponse(response) {
-        saveSession(response.token, response.user);
+        saveSession(response.token, response.user, response.refreshToken);
         setUser(response.user);
       },
       updateUser(nextUser) {

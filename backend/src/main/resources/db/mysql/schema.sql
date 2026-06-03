@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS store (
   status         VARCHAR(20)  NOT NULL DEFAULT 'OPEN',
   create_time    DATETIME     NOT NULL,
   update_time    DATETIME     NOT NULL,
-  PRIMARY KEY (store_id)
+  PRIMARY KEY (store_id),
+  INDEX idx_store_city_status (city, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------------------
@@ -101,6 +102,10 @@ CREATE TABLE IF NOT EXISTS car (
   PRIMARY KEY (car_id),
   INDEX idx_car_brand (brand),
   INDEX idx_car_status (status),
+  INDEX idx_car_brand_status (brand, status),
+  INDEX idx_car_store_status (store_id, status),
+  INDEX idx_car_category_status (category_id, status),
+  INDEX idx_car_status_create_time (status, create_time),
   CONSTRAINT fk_car_category FOREIGN KEY (category_id) REFERENCES car_category(category_id),
   CONSTRAINT fk_car_store    FOREIGN KEY (store_id)    REFERENCES store(store_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -116,6 +121,7 @@ CREATE TABLE IF NOT EXISTS car_image (
   create_time DATETIME     NOT NULL,
   update_time DATETIME     NOT NULL,
   PRIMARY KEY (image_id),
+  INDEX idx_car_image_car (car_id),
   CONSTRAINT fk_car_image_car FOREIGN KEY (car_id) REFERENCES car(car_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -140,6 +146,11 @@ CREATE TABLE IF NOT EXISTS rental_order (
   PRIMARY KEY (order_id),
   UNIQUE INDEX idx_order_no (order_no),
   INDEX idx_order_status (status),
+  INDEX idx_order_user_create_time (user_id, create_time),
+  INDEX idx_order_car_status_time (car_id, status, start_time, end_time),
+  INDEX idx_order_pickup_store_create_time (pickup_store_id, create_time),
+  INDEX idx_order_return_store_create_time (return_store_id, create_time),
+  INDEX idx_order_status_create_time (status, create_time),
   CONSTRAINT fk_order_user         FOREIGN KEY (user_id)          REFERENCES users(user_id),
   CONSTRAINT fk_order_car          FOREIGN KEY (car_id)           REFERENCES car(car_id),
   CONSTRAINT fk_order_pickup_store FOREIGN KEY (pickup_store_id)  REFERENCES store(store_id),
@@ -158,11 +169,22 @@ CREATE TABLE IF NOT EXISTS payment_order (
   pay_type       VARCHAR(20)   NOT NULL DEFAULT 'MOCK',
   pay_status     VARCHAR(20)   NOT NULL DEFAULT 'WAITING',
   transaction_no VARCHAR(100)  DEFAULT NULL,
+  idempotency_key VARCHAR(80)  DEFAULT NULL,
+  callback_idempotency_key VARCHAR(80) DEFAULT NULL,
+  refund_idempotency_key VARCHAR(80) DEFAULT NULL,
+  refund_reason  VARCHAR(255) DEFAULT NULL,
   pay_time       DATETIME      DEFAULT NULL,
+  refund_time    DATETIME      DEFAULT NULL,
   create_time    DATETIME      NOT NULL,
   update_time    DATETIME      NOT NULL,
   PRIMARY KEY (payment_id),
   UNIQUE INDEX idx_payment_no (payment_no),
+  UNIQUE INDEX idx_payment_order (order_id),
+  UNIQUE INDEX idx_payment_idempotency (idempotency_key),
+  UNIQUE INDEX idx_payment_callback_idempotency (callback_idempotency_key),
+  UNIQUE INDEX idx_payment_refund_idempotency (refund_idempotency_key),
+  INDEX idx_payment_status_time (pay_status, pay_time),
+  INDEX idx_payment_user_status_time (user_id, pay_status, pay_time),
   CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES rental_order(order_id),
   CONSTRAINT fk_payment_user  FOREIGN KEY (user_id)  REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -181,6 +203,8 @@ CREATE TABLE IF NOT EXISTS contract (
   update_time  DATETIME     NOT NULL,
   PRIMARY KEY (contract_id),
   UNIQUE INDEX idx_contract_no (contract_no),
+  INDEX idx_contract_order (order_id),
+  INDEX idx_contract_user_create_time (user_id, create_time),
   CONSTRAINT fk_contract_order FOREIGN KEY (order_id) REFERENCES rental_order(order_id),
   CONSTRAINT fk_contract_user  FOREIGN KEY (user_id)  REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -199,6 +223,9 @@ CREATE TABLE IF NOT EXISTS comment_record (
   create_time DATETIME    NOT NULL,
   update_time DATETIME    NOT NULL,
   PRIMARY KEY (comment_id),
+  INDEX idx_comment_car_status_create_time (car_id, status, create_time),
+  INDEX idx_comment_order_user_status (order_id, user_id, status),
+  INDEX idx_comment_status_create_time (status, create_time),
   CONSTRAINT fk_comment_user  FOREIGN KEY (user_id)  REFERENCES users(user_id),
   CONSTRAINT fk_comment_car   FOREIGN KEY (car_id)   REFERENCES car(car_id),
   CONSTRAINT fk_comment_order FOREIGN KEY (order_id) REFERENCES rental_order(order_id)
@@ -217,5 +244,48 @@ CREATE TABLE IF NOT EXISTS maintenance_record (
   create_time DATETIME      NOT NULL,
   update_time DATETIME      NOT NULL,
   PRIMARY KEY (record_id),
+  INDEX idx_maintenance_car_record_time (car_id, record_time),
+  INDEX idx_maintenance_type_record_time (type, record_time),
   CONSTRAINT fk_maintenance_car FOREIGN KEY (car_id) REFERENCES car(car_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------------------
+-- refresh_token — 刷新令牌
+-- -------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS refresh_token (
+  refresh_token_id BIGINT       NOT NULL AUTO_INCREMENT,
+  user_id          BIGINT       NOT NULL,
+  token            VARCHAR(80)  NOT NULL,
+  expires_at       DATETIME     NOT NULL,
+  revoked_at       DATETIME     DEFAULT NULL,
+  create_time      DATETIME     NOT NULL,
+  update_time      DATETIME     NOT NULL,
+  PRIMARY KEY (refresh_token_id),
+  UNIQUE INDEX idx_refresh_token_token (token),
+  INDEX idx_refresh_token_user (user_id),
+  CONSTRAINT fk_refresh_token_user FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------------------
+-- operation_audit_log — 操作审计日志
+-- -------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS operation_audit_log (
+  audit_log_id   BIGINT       NOT NULL AUTO_INCREMENT,
+  actor_user_id  BIGINT       DEFAULT NULL,
+  actor_username VARCHAR(50)  DEFAULT NULL,
+  actor_role     VARCHAR(20)  DEFAULT NULL,
+  http_method    VARCHAR(10)  NOT NULL,
+  path           VARCHAR(255) NOT NULL,
+  action         VARCHAR(255) NOT NULL,
+  response_status INT         NOT NULL,
+  success        BIT          NOT NULL,
+  client_ip      VARCHAR(64)  DEFAULT NULL,
+  user_agent     VARCHAR(255) DEFAULT NULL,
+  error_message  VARCHAR(500) DEFAULT NULL,
+  create_time    DATETIME     NOT NULL,
+  update_time    DATETIME     NOT NULL,
+  PRIMARY KEY (audit_log_id),
+  INDEX idx_audit_actor (actor_user_id),
+  INDEX idx_audit_path (path),
+  INDEX idx_audit_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

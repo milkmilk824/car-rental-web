@@ -7,10 +7,13 @@
 - Java 17
 - Spring Boot 3.3.5
 - Spring Web / Validation / Data JPA
+- Spring Data Redis
+- Springdoc OpenAPI / Swagger UI
 - **MySQL 8** 持久化数据库（默认 dev 环境）
+- **Redis** 会话持久化（Token session、访问令牌黑名单，可配置为 Redis 必须或自动兜底）
 - H2 内存数据库（test 环境，`mvn test` 无需 MySQL）
 - BCrypt 密码加密
-- 自定义 Token 鉴权与角色控制
+- 自定义 Token 鉴权、刷新令牌、退出登录与角色控制
 
 ## 数据库
 
@@ -43,6 +46,22 @@
 | `MYSQL_URL` | `jdbc:mysql://localhost:3306/drivepilot_car_rental?...` | JDBC 连接串 |
 | `MYSQL_USER` | `root` | 数据库用户 |
 | `MYSQL_PASSWORD` | 空 | 数据库密码；本机可设置为 `123456` |
+| `REDIS_HOST` | `localhost` | Redis 主机 |
+| `REDIS_PORT` | `6379` | Redis 端口 |
+| `REDIS_PASSWORD` | 空 | Redis 密码 |
+| `REDIS_DATABASE` | `0` | Redis database |
+| `APP_SESSION_STORE` | `auto` | `local` 仅内存，`redis` 强制 Redis，`auto` Redis 优先、本地兜底 |
+| `APP_SESSION_TOKEN_TTL` | `PT12H` | Token 在 Redis 中的有效期 |
+| `APP_SESSION_REFRESH_TOKEN_TTL` | `P14D` | 刷新令牌有效期，持久化在 MySQL |
+| `APP_CACHE_REDIS_PREFIX` | `drivepilot:cache:` | 热点查询缓存前缀，覆盖车辆分类、门店、车辆搜索、看板 |
+| `APP_RATE_LIMIT_ENABLED` | `true` | 是否启用高风险接口限流 |
+| `APP_RATE_LIMIT_LOGIN_LIMIT` | `20` | 每分钟登录限流阈值 |
+| `APP_RATE_LIMIT_ORDER_LIMIT` | `30` | 每分钟下单限流阈值 |
+| `APP_RATE_LIMIT_CALLBACK_LIMIT` | `120` | 每分钟支付回调限流阈值 |
+| `APP_RATE_LIMIT_UPLOAD_LIMIT` | `20` | 每分钟上传限流阈值 |
+| `APP_REDIS_CIRCUIT_FAILURE_THRESHOLD` | `3` | Redis 连续失败多少次后熔断 |
+| `APP_REDIS_CIRCUIT_OPEN_DURATION` | `PT30S` | Redis 熔断打开时长 |
+| `DB_POOL_MAX_SIZE` | `20` | Hikari 最大连接池大小 |
 | `PAYMENT_CALLBACK_SECRET` | `change-me-local-secret` | 支付回调签名密钥；生产环境必须覆盖 |
 
 ### 启动命令
@@ -50,12 +69,15 @@
 ```powershell
 cd E:\workspace\car-rental-web\backend
 $env:MYSQL_PASSWORD="123456"
+$env:APP_SESSION_STORE="auto"
 & "D:\idea2024\IntelliJ IDEA 2024.1\plugins\maven\lib\maven3\bin\mvn.cmd" spring-boot:run
 ```
 
 启动后访问：
 
 - API 地址：http://localhost:8080
+- Swagger UI：http://localhost:8080/swagger-ui.html
+- OpenAPI JSON：http://localhost:8080/v3/api-docs
 - H2 控制台（仅 H2/test 环境）：http://localhost:8080/h2-console
 
 ### 初始化数据
@@ -79,6 +101,8 @@ $env:MYSQL_PASSWORD="123456"
 | 评价 | 创建、按车查询、列表、审核移除（软删除） | ✅ 完整 |
 | 维修保养 | 创建、更新、删除、按车查询、列表 | ✅ 完整 |
 | 数据看板 | 日订单、月收入、出租率、活跃用户、热门车型TOP5、门店业绩 | ✅ 完整 |
+| 操作审计 | 管理员/门店关键写操作留痕、审计日志分页查询 | ✅ 完整 |
+| 高并发基础 | 热点 Redis 缓存、限流、Redis 熔断降级、异步审计、复合索引、N+1 优化 | ✅ 已补强 |
 
 > 数据接入说明：用户、车辆、分类、门店、维修保养等基础资料已接入真实 MySQL 增删改查。  
 > 订单、支付、合同、评价属于流程型数据：通过下单、支付、签署、退款、评价移除等业务动作更新状态；评价模块使用软删除(`status=REMOVED`)；合同由支付成功自动生成，也可由管理员补生成。
@@ -130,6 +154,7 @@ Content-Type: application/json
 ### 公开接口（无需登录）
 - `POST /api/user/register` — 注册
 - `POST /api/user/login` — 登录
+- `POST /api/user/refresh` — 刷新访问令牌并轮换刷新令牌
 - `GET /api/cars`, `GET /api/cars/search` — 车辆搜索
 - `GET /api/cars/categories` — 分类列表
 - `GET /api/cars/{id}` — 车辆详情
@@ -141,6 +166,7 @@ Content-Type: application/json
 
 ### 用户接口（需登录）
 - `GET /api/user/profile` — 个人信息
+- `POST /api/user/logout` — 退出登录，撤销访问令牌并使刷新令牌失效
 - `PUT /api/user/profile` — 更新个人信息
 - `POST /api/user/license` — 提交驾照信息
 - `POST /api/orders` — 创建订单
@@ -215,6 +241,11 @@ Content-Type: application/json
 **评价管理：**
 - `GET /api/admin/comments` — 评价列表
 - `DELETE /api/admin/comments/{id}` — 移除评价
+
+**操作审计：**
+- `GET /api/admin/audit-logs` — 审计日志分页查询
+
+> 后台大表接口已统一分页返回 `PageResult<T>`：`/api/admin/users`、`/api/admin/orders`、`/api/store/orders`、`/api/admin/payments`、`/api/admin/contracts`、`/api/admin/comments`、`/api/admin/cars/maintenance`、`/api/admin/cars/{id}/maintenance`、`/api/admin/audit-logs`。分页列表使用 `EntityGraph` 与 `hibernate.default_batch_fetch_size=50` 降低 N+1 风险。
 
 ## 前端对接状态
 

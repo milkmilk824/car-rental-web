@@ -6,12 +6,24 @@ spring:
     name: car-rental-backend
   profiles:
     active: dev
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME:1800000}
   jpa:
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
+        default_batch_fetch_size: 50
     show-sql: false
+  data:
+    redis:
+      repositories:
+        enabled: false
 
 app:
   payment:
@@ -23,3 +35,31 @@ app:
     secret: ${APP_BOOTSTRAP_SECRET:}
   upload:
     dir: ${APP_UPLOAD_DIR:uploads}
+  session:
+    # local: in-memory only; redis: Redis required; auto: Redis first, local fallback.
+    store: ${APP_SESSION_STORE:auto}
+    redis-prefix: "${APP_SESSION_REDIS_PREFIX:drivepilot:session:}"
+    token-ttl: ${APP_SESSION_TOKEN_TTL:PT12H}
+    refresh-token-ttl: ${APP_SESSION_REFRESH_TOKEN_TTL:P14D}
+  cache:
+    redis-prefix: "${APP_CACHE_REDIS_PREFIX:drivepilot:cache:}"
+  redis-circuit:
+    failure-threshold: ${APP_REDIS_CIRCUIT_FAILURE_THRESHOLD:3}
+    open-duration: ${APP_REDIS_CIRCUIT_OPEN_DURATION:PT30S}
+  rate-limit:
+    enabled: ${APP_RATE_LIMIT_ENABLED:true}
+    redis-prefix: "${APP_RATE_LIMIT_REDIS_PREFIX:drivepilot:rate-limit:}"
+    window: ${APP_RATE_LIMIT_WINDOW:PT1M}
+    login:
+      limit: ${APP_RATE_LIMIT_LOGIN_LIMIT:20}
+    order:
+      limit: ${APP_RATE_LIMIT_ORDER_LIMIT:30}
+    callback:
+      limit: ${APP_RATE_LIMIT_CALLBACK_LIMIT:120}
+    upload:
+      limit: ${APP_RATE_LIMIT_UPLOAD_LIMIT:20}
+  audit:
+    executor:
+      core-size: ${APP_AUDIT_CORE_SIZE:2}
+      max-size: ${APP_AUDIT_MAX_SIZE:6}
+      queue-capacity: ${APP_AUDIT_QUEUE_CAPACITY:1000}

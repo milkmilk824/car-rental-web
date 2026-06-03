@@ -2,6 +2,7 @@ package com.example.carrental.controller;
 
 import com.example.carrental.common.ApiResponse;
 import com.example.carrental.common.Enums.UserRole;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.dto.PaymentDtos;
 import com.example.carrental.security.AuthContext;
 import com.example.carrental.security.PublicEndpoint;
@@ -9,8 +10,6 @@ import com.example.carrental.security.RequireRole;
 import com.example.carrental.service.PaymentService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 public class PaymentController {
@@ -22,8 +21,11 @@ public class PaymentController {
     }
 
     @PostMapping("/api/payments/create")
-    public ApiResponse<PaymentDtos.PaymentResponse> create(@Valid @RequestBody PaymentDtos.CreatePaymentRequest request) {
-        return ApiResponse.ok(paymentService.create(request, AuthContext.required().id()));
+    public ApiResponse<PaymentDtos.PaymentResponse> create(
+            @Valid @RequestBody PaymentDtos.CreatePaymentRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        return ApiResponse.ok(paymentService.create(request, AuthContext.required().id(), idempotencyKey));
     }
 
     @GetMapping("/api/payments/status/{paymentNo}")
@@ -33,8 +35,11 @@ public class PaymentController {
 
     @PublicEndpoint
     @PostMapping("/api/payments/callback")
-    public ApiResponse<PaymentDtos.PaymentResponse> callback(@Valid @RequestBody PaymentDtos.PaymentCallbackRequest request) {
-        return ApiResponse.ok(paymentService.callback(request));
+    public ApiResponse<PaymentDtos.PaymentResponse> callback(
+            @Valid @RequestBody PaymentDtos.PaymentCallbackRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        return ApiResponse.ok(paymentService.callback(request, idempotencyKey));
     }
 
     @PostMapping("/api/payments/{paymentNo}/simulate-success")
@@ -44,8 +49,11 @@ public class PaymentController {
 
     @RequireRole(UserRole.ADMIN)
     @PostMapping("/api/payments/refund")
-    public ApiResponse<PaymentDtos.PaymentResponse> refund(@Valid @RequestBody PaymentDtos.RefundRequest request) {
-        return ApiResponse.ok(paymentService.refund(request));
+    public ApiResponse<PaymentDtos.PaymentResponse> refund(
+            @Valid @RequestBody PaymentDtos.RefundRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        return ApiResponse.ok(paymentService.refund(request, idempotencyKey));
     }
 
     @GetMapping("/api/payments/order/{orderId}")
@@ -55,7 +63,10 @@ public class PaymentController {
 
     @RequireRole(UserRole.ADMIN)
     @GetMapping("/api/admin/payments")
-    public ApiResponse<List<PaymentDtos.PaymentResponse>> list() {
-        return ApiResponse.ok(paymentService.list());
+    public ApiResponse<PageResult<PaymentDtos.PaymentResponse>> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(paymentService.list(page, size));
     }
 }

@@ -1,6 +1,8 @@
 package com.example.carrental.config;
 
 import com.example.carrental.security.AuthInterceptor;
+import com.example.carrental.security.AuditInterceptor;
+import com.example.carrental.security.RateLimitInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -13,10 +15,19 @@ import java.nio.file.Path;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final AuthInterceptor authInterceptor;
+    private final RateLimitInterceptor rateLimitInterceptor;
+    private final AuditInterceptor auditInterceptor;
     private final String uploadDir;
 
-    public WebMvcConfig(AuthInterceptor authInterceptor, @Value("${app.upload.dir:uploads}") String uploadDir) {
+    public WebMvcConfig(
+            AuthInterceptor authInterceptor,
+            RateLimitInterceptor rateLimitInterceptor,
+            AuditInterceptor auditInterceptor,
+            @Value("${app.upload.dir:uploads}") String uploadDir
+    ) {
         this.authInterceptor = authInterceptor;
+        this.rateLimitInterceptor = rateLimitInterceptor;
+        this.auditInterceptor = auditInterceptor;
         this.uploadDir = uploadDir;
     }
 
@@ -25,6 +36,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/h2-console/**");
+        registry.addInterceptor(rateLimitInterceptor)
+                .addPathPatterns("/api/**");
+        registry.addInterceptor(auditInterceptor)
+                .addPathPatterns("/api/**");
     }
 
     @Override

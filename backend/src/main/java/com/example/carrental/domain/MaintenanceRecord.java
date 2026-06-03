@@ -7,7 +7,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "maintenance_record")
+@Table(name = "maintenance_record", indexes = {
+        @Index(name = "idx_maintenance_car_record_time", columnList = "car_id,record_time"),
+        @Index(name = "idx_maintenance_type_record_time", columnList = "type,record_time")
+})
 public class MaintenanceRecord extends BaseEntity {
 
     @Id

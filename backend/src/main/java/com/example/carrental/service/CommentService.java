@@ -3,10 +3,13 @@ package com.example.carrental.service;
 import com.example.carrental.common.BusinessException;
 import com.example.carrental.common.Enums.CommentStatus;
 import com.example.carrental.common.Enums.OrderStatus;
+import com.example.carrental.common.PageResult;
 import com.example.carrental.domain.Comment;
 import com.example.carrental.domain.RentalOrder;
 import com.example.carrental.dto.CommentDtos;
 import com.example.carrental.repository.CommentRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,8 +56,13 @@ public class CommentService {
     }
 
     @Transactional(readOnly = true)
-    public List<CommentDtos.CommentResponse> listAll() {
-        return commentRepository.findAll().stream().map(DtoMapper::toCommentResponse).toList();
+    public PageResult<CommentDtos.CommentResponse> listAll(int page, int size) {
+        PageRequest pageRequest = PageRequest.of(
+                Math.max(page, 0),
+                Math.max(1, Math.min(size, 100)),
+                Sort.by(Sort.Direction.DESC, "createTime")
+        );
+        return PageResult.from(commentRepository.findAll(pageRequest).map(DtoMapper::toCommentResponse));
     }
 
     public void remove(Long commentId) {

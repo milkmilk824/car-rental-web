@@ -9,7 +9,15 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "payment_order", indexes = {
-        @Index(name = "idx_payment_no", columnList = "paymentNo", unique = true)
+        @Index(name = "idx_payment_no", columnList = "paymentNo", unique = true),
+        @Index(name = "idx_payment_order", columnList = "order_id", unique = true),
+        @Index(name = "idx_payment_status_time", columnList = "payStatus,payTime"),
+        @Index(name = "idx_payment_user_status_time", columnList = "user_id,payStatus,payTime"),
+        @Index(name = "idx_payment_idempotency", columnList = "idempotencyKey", unique = true),
+        @Index(name = "idx_payment_callback_idempotency", columnList = "callbackIdempotencyKey", unique = true),
+        @Index(name = "idx_payment_refund_idempotency", columnList = "refundIdempotencyKey", unique = true)
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_payment_order", columnNames = "order_id")
 })
 public class PaymentOrder extends BaseEntity {
 
@@ -43,7 +51,21 @@ public class PaymentOrder extends BaseEntity {
     @Column(length = 100)
     private String transactionNo;
 
+    @Column(length = 80, unique = true)
+    private String idempotencyKey;
+
+    @Column(length = 80, unique = true)
+    private String callbackIdempotencyKey;
+
+    @Column(length = 80, unique = true)
+    private String refundIdempotencyKey;
+
+    @Column(length = 255)
+    private String refundReason;
+
     private LocalDateTime payTime;
+
+    private LocalDateTime refundTime;
 
     public Long getId() {
         return id;
@@ -109,11 +131,51 @@ public class PaymentOrder extends BaseEntity {
         this.transactionNo = transactionNo;
     }
 
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+    }
+
+    public String getRefundIdempotencyKey() {
+        return refundIdempotencyKey;
+    }
+
+    public String getCallbackIdempotencyKey() {
+        return callbackIdempotencyKey;
+    }
+
+    public void setCallbackIdempotencyKey(String callbackIdempotencyKey) {
+        this.callbackIdempotencyKey = callbackIdempotencyKey;
+    }
+
+    public void setRefundIdempotencyKey(String refundIdempotencyKey) {
+        this.refundIdempotencyKey = refundIdempotencyKey;
+    }
+
+    public String getRefundReason() {
+        return refundReason;
+    }
+
+    public void setRefundReason(String refundReason) {
+        this.refundReason = refundReason;
+    }
+
     public LocalDateTime getPayTime() {
         return payTime;
     }
 
     public void setPayTime(LocalDateTime payTime) {
         this.payTime = payTime;
+    }
+
+    public LocalDateTime getRefundTime() {
+        return refundTime;
+    }
+
+    public void setRefundTime(LocalDateTime refundTime) {
+        this.refundTime = refundTime;
     }
 }

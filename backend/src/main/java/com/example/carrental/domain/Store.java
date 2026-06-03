@@ -4,7 +4,9 @@ import com.example.carrental.common.Enums.StoreStatus;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "store")
+@Table(name = "store", indexes = {
+        @Index(name = "idx_store_city_status", columnList = "city,status")
+})
 public class Store extends BaseEntity {
 
     @Id

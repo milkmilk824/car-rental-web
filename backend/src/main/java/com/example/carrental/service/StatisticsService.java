@@ -8,6 +8,7 @@ import com.example.carrental.domain.PaymentOrder;
 import com.example.carrental.domain.RentalOrder;
 import com.example.carrental.domain.Store;
 import com.example.carrental.dto.StatisticsDtos;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.example.carrental.repository.CarRepository;
 import com.example.carrental.repository.PaymentOrderRepository;
 import com.example.carrental.repository.RentalOrderRepository;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -35,22 +37,46 @@ public class StatisticsService {
     private final CarRepository carRepository;
     private final StoreRepository storeRepository;
     private final UserRepository userRepository;
+    private final HotCacheService cacheService;
 
     public StatisticsService(
             RentalOrderRepository orderRepository,
             PaymentOrderRepository paymentRepository,
             CarRepository carRepository,
             StoreRepository storeRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            HotCacheService cacheService
     ) {
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
         this.carRepository = carRepository;
         this.storeRepository = storeRepository;
         this.userRepository = userRepository;
+        this.cacheService = cacheService;
     }
 
     public StatisticsDtos.DashboardResponse dashboard() {
+        return cacheService.getOrLoad(
+                "stats:dashboard",
+                Duration.ofSeconds(30),
+                new TypeReference<>() {
+                },
+                this::loadDashboard
+        );
+    }
+
+    public List<StatisticsDtos.RevenueTrendResponse> revenueTrend(int days) {
+        int safeDays = Math.min(Math.max(days, 1), 31);
+        return cacheService.getOrLoad(
+                "stats:revenue-trend:" + safeDays,
+                Duration.ofSeconds(30),
+                new TypeReference<>() {
+                },
+                () -> loadRevenueTrend(safeDays)
+        );
+    }
+
+    private StatisticsDtos.DashboardResponse loadDashboard() {
         LocalDate today = LocalDate.now();
         long todayOrders = orderRepository.countByCreateTimeBetween(today.atStartOfDay(), today.plusDays(1).atStartOfDay());
 
@@ -98,8 +124,7 @@ public class StatisticsService {
         );
     }
 
-    public List<StatisticsDtos.RevenueTrendResponse> revenueTrend(int days) {
-        int safeDays = Math.min(Math.max(days, 1), 31);
+    private List<StatisticsDtos.RevenueTrendResponse> loadRevenueTrend(int safeDays) {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(safeDays - 1L);
         Map<LocalDate, BigDecimal> revenueByDate = paymentRepository.findByPayStatus(PayStatus.SUCCESS).stream()

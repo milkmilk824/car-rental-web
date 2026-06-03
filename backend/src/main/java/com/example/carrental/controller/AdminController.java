@@ -3,9 +3,12 @@ package com.example.carrental.controller;
 import com.example.carrental.common.ApiResponse;
 import com.example.carrental.common.Enums.UserRole;
 import com.example.carrental.common.Enums.UserStatus;
+import com.example.carrental.common.PageResult;
+import com.example.carrental.dto.AuditDtos;
 import com.example.carrental.dto.StatisticsDtos;
 import com.example.carrental.dto.UserDtos;
 import com.example.carrental.security.RequireRole;
+import com.example.carrental.service.AuditService;
 import com.example.carrental.service.StatisticsService;
 import com.example.carrental.service.UserService;
 import jakarta.validation.Valid;
@@ -20,10 +23,12 @@ public class AdminController {
 
     private final StatisticsService statisticsService;
     private final UserService userService;
+    private final AuditService auditService;
 
-    public AdminController(StatisticsService statisticsService, UserService userService) {
+    public AdminController(StatisticsService statisticsService, UserService userService, AuditService auditService) {
         this.statisticsService = statisticsService;
         this.userService = userService;
+        this.auditService = auditService;
     }
 
     @GetMapping("/dashboard")
@@ -37,8 +42,19 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public ApiResponse<List<UserDtos.UserResponse>> users() {
-        return ApiResponse.ok(userService.listUsers());
+    public ApiResponse<PageResult<UserDtos.UserResponse>> users(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(userService.listUsers(page, size));
+    }
+
+    @GetMapping("/audit-logs")
+    public ApiResponse<PageResult<AuditDtos.AuditLogResponse>> auditLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(auditService.list(page, size));
     }
 
     @GetMapping("/users/{id}")
